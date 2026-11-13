@@ -1,0 +1,28 @@
+# Implementation ledger — plan: docs/superpowers/plans/2026-11-13-file-transfer.md
+
+Spec is authoritative. Execution authorized 2026-11-13. No existing code or git repository; no provider environment variables, Docker, psql or cf detected at start.
+
+Pre-flight: Task1 storage types -> Tasks3/5; Task2 transactional repository -> Tasks3/4/5; Task3 API contracts -> Task6 client; Task4 expiry -> Task5 cleanup; all must use shared types/constants.
+
+Ruling: Implement in the provided empty workspace rather than create a linked worktree — there is no pre-existing repository/branch to isolate. No automatic remote push or production deploy.
+Ruling: Live provider tests require credentials not currently supplied. Continue implementing and locally testing all independent work, report staging verification as blocked, never silently skip tests as evidence of production readiness.
+Ruling: Default to bounded 16 MiB multipart proxy until a live browser/R2 test proves signed Content-Length enforcement. This is the spec's explicit fallback and prevents unbounded direct upload while staging credentials are unavailable; direct mode stays fail-closed behind DIRECT_UPLOAD_VERIFIED.
+Ruling: Use local PGlite PostgreSQL for database invariant tests when Docker/psql are unavailable; also supply migrations and staging tests for actual Supabase/R2 verification. Local SQL cannot prove provider configuration.
+
+Tasks1–7: in progress.
+
+Ruling: Build deployable official Build Output with @cloudflare/config + @cloudflare/build-output-utils and deploy via cf --prebuilt — the installed Vite plugin rejects cloudflare.config.ts. Custom packaging is schema-checked and cf dry-run verifies the bundle; do not use cf build in this repo. Cost if wrong: deployment blocked until CLI upgrade, not silent live changes.
+Ruling: Reduce cleanup batch25 to3, reconciliation page100 to3, share a hard40 network subrequest budget — Workers Free limit50 includes both jobs in one scheduled invocation. Cost: slower cleanup under backlog; state stays pending and quota reserved until confirmed.
+Final review: Important checksum signing fixed (requestChecksumCalculation WHEN_REQUIRED); signing regression observed RED->GREEN.
+Final review: Important completion response-loss fixed (generation-guarded compensation + ready recovery; client retries completion without DELETE); database/API/client regressions observed RED->GREEN.
+Final review: Important subrequest overflow fixed with bounded batch/page + shared network budget; budget regression observed RED->GREEN.
+Final: minor (deferred): JWKS cache is recreated per request; correctness is verified, one extra network lookup is reserved within budget. Cost is latency/request overhead; cache optimization deferred.
+Final: Ruling: Upstream stream failure is treated as important resource safety rather than cosmetic; coordinate cancellation so the producer cannot continue after failed PUT. Cost if wrong: hanging requests or dropped upload parts, covered by bounded stream tests and runtime staging gate.
+
+Ruling: Upload session columns share the tt.transfers row instead of a separate uploads table, and named repository actions share one service-only transfer_rpc dispatcher — locking/generation/accounting stay within one transaction. No client table access. Cost: less SQL modularity; covered by real PostgreSQL invariant tests.
+Ruling: Pin workerd 1.20261113.1 for local runtime while cf's Miniflare uses its documented V4 adapter — bundled runtime was too old for the specified compatibility date. Production date unchanged. Cost: dev tool compatibility must be checked on upgrades.
+Final: fixed independent reconciliation cursor completion flags — unequal scan lengths reproduced RED->GREEN; completed legs no longer restart before the other leg finishes.
+
+Implementation status: Tasks1–7 code, migration, UI, local tests, build artifacts, CI and runbooks implemented. Provider provisioning/live browser R2 and 1GiB staging acceptance remain BLOCKED (no credentials supplied), so deployment/release gates are not marked complete. No resources created or production deploy performed.
+
+Local evidence: npm test -> 26 tests pass; npm run typecheck / lint -> pass; Chrome test:e2e -> 4 tests pass; npm run build -> official build output verified; cf deploy --prebuilt --mode production --dry-run -> pass; npm run test:runtime -> workerd auth/SPA plus strict streaming/error cases pass. Live test:integration -> BLOCKED missing staging env, intentionally fails rather than skipping.

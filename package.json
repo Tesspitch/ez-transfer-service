@@ -1,0 +1,57 @@
+{
+  "name": "terminal-transfer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build && node scripts/package-worker.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:db": "vitest run tests/db",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "playwright test",
+    "deploy": "npm run build && cf deploy --prebuilt --mode production",
+    "format": "prettier --write src tests scripts *.ts *.js public/theme-init.js index.html",
+    "dev:worker": "node scripts/dev-worker.mjs",
+    "test:runtime": "node scripts/verify-runtime.mjs && node scripts/verify-stream-runtime.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.900.0",
+    "@aws-sdk/s3-request-presigner": "^3.900.0",
+    "@supabase/supabase-js": "^2.80.0",
+    "hono": "^4.10.0",
+    "jose": "^6.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/build-output-utils": "^0.8.0",
+    "@cloudflare/config": "^0.18.0",
+    "@cloudflare/workers-types": "^5.20261113.1",
+    "@electric-sql/pglite": "^0.3.14",
+    "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "cf": "^0.15.0",
+    "esbuild": "^0.25.12",
+    "eslint": "^9.39.0",
+    "miniflare": "^5.20260923.0-alpha",
+    "prettier": "^3.10.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vite": "^7.2.0",
+    "vitest": "^3.2.4",
+    "workerd": "^1.20261113.1"
+  }
+}

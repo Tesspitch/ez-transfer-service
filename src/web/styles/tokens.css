@@ -1,0 +1,215 @@
+:root {
+  font-family: "Noto Sans Thai", Tahoma, system-ui, sans-serif;
+  font-size: 15px;
+  font-synthesis: none;
+  color-scheme: light;
+  --bg: #f5f7fa;
+  --surface: #fff;
+  --raised: #edf1f5;
+  --text: #18212f;
+  --muted: #526174;
+  --border: #d4dce5;
+  --accent: #166534;
+  --accent-bg: #e6f3e9;
+  --danger: #b42332;
+  --shadow: 0 16px 60px #18212f08;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0f14;
+  --surface: #111923;
+  --raised: #18232e;
+  --text: #e6edf3;
+  --muted: #9aaabd;
+  --border: #293646;
+  --accent: #4ade80;
+  --accent-bg: #142b24;
+  --danger: #ff9299;
+  --shadow: 0 16px 60px #0002;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+a {
+  color: inherit;
+}
+button,
+input,
+select {
+  color: var(--text);
+}
+button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  min-height: 44px;
+  border-radius: 4px;
+  padding: 10px 17px;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+input,
+select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  min-height: 46px;
+  padding: 11px 13px;
+  max-width: 100%;
+}
+input {
+  width: 100%;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 0.9rem;
+}
+label + label {
+  margin-top: 22px;
+}
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+h2 {
+  font-size: 1.55rem;
+  letter-spacing: -0.04em;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+h3 {
+  font-size: 1rem;
+}
+p {
+  line-height: 1.75;
+}
+strong {
+  font-weight: 600;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.muted,
+.dim {
+  color: var(--muted);
+}
+.hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 10px 0 20px;
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.73rem;
+  letter-spacing: 0.13em;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+.primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+  filter: brightness(1.1);
+}
+.primary span {
+  margin-left: 24px;
+}
+.full {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 28px;
+}
+.error {
+  color: var(--danger);
+  font-size: 0.9rem;
+  margin: 14px 0 0;
+}
+.error:empty,
+.success:empty {
+  display: none;
+}
+.success {
+  color: var(--accent);
+  font-size: 0.9rem;
+  margin-top: 16px;
+}
+.danger {
+  color: var(--danger);
+}
+.subtle {
+  border-color: transparent;
+  background: transparent;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.command {
+  font: 0.83rem var(--mono);
+  color: var(--muted);
+  margin-bottom: 26px;
+}
+.command > span {
+  color: var(--accent);
+  margin-right: 9px;
+}
+.filename {
+  overflow-wrap: anywhere;
+}
