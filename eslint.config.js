@@ -10,13 +10,20 @@ export default ts.config(
       "cloudflare.config.ts",
       ".cloudflare/**",
       ".wrangler/**",
+      ".superpowers/**",
     ],
   },
   js.configs.recommended,
   ...ts.configs.recommended,
   {
     files: ["scripts/*.mjs"],
-    languageOptions: { globals: { process: "readonly", console: "readonly",Response:'readonly' } },
+    languageOptions: {
+      globals: {
+        process: "readonly",
+        console: "readonly",
+        Response: "readonly",
+      },
+    },
   },
   {
     files: ["public/*.js"],

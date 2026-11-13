@@ -13,6 +13,7 @@ import type { Repository } from "./db";
 import type { Storage } from "./storage/r2";
 import { requireMember } from "./auth";
 import { AppError } from "./errors";
+import { isAllowedOrigin } from "./security/origin";
 import { UploadService } from "./services/uploads";
 import { TransferService } from "./services/transfers";
 export interface Dependencies {
@@ -66,8 +67,7 @@ export function createApp(deps: Dependencies) {
   });
   app.use("/api/*", async (c, next) => {
     if (!["GET", "HEAD"].includes(c.req.method)) {
-      const origin = c.req.header("Origin");
-      if (origin && origin !== c.env.APP_ORIGIN)
+      if (!isAllowedOrigin(c.req.raw, c.env.APP_ORIGIN))
         throw new AppError("FORBIDDEN", 403);
     }
     const member = await requireMember(c.req.raw, deps.verify, (id) =>

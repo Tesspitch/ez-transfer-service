@@ -32,3 +32,11 @@ Local evidence: npm test -> 26 tests pass; npm run typecheck / lint -> pass; Chr
 2026-11-13: user requested design + handoff only for removing account auth and choosing single/multiple recipients. Added authoritative v2 design and docs/handoffs/2026-11-13-anonymous-sharing.md; no product code or provider configuration changed. Proposed default single; atomic explicit claim with receiver capability, separate owner management capability, local browser history. Baseline tests above apply to v1 only and are not v2 verification.
 
 v2 builder review: one material gap corrected — pending/confirmed receiver records persist canonical code + transferId + token + claimRequestId before claim, with active pointer for reload after fragment removal; resolve rechecks server state. Reviewed local doc links resolve (5 checked). No runtime tests needed for this docs-only change. Unrelated concurrent .env.example edit preserved and excluded from docs commit.
+
+## Deploy origin bootstrap fix
+
+2026-11-13: user correctly flagged that requiring a known APP_ORIGIN before the first deployment was circular for the same-origin app. Added APP_ORIGIN=auto (default if not set) to compare Origin with the actual request URL; explicit local Vite origin still supported. No forwarded-host trust, wildcard origin, login/sharing change or deploy. Origin regression tests written and observed failing before implementation.
+
+Provider retest with user's updated .env: Supabase budget RPC and server privileges PASS; R2 multipart create/upload/complete/HEAD/signed GET of34 bytes PASS; temporary test object deleted. List-all-buckets remains AccessDenied for the scoped token, which does not block configured bucket operations. No secrets printed or user .env/.env.example modified.
+
+Origin fix verification: typecheck/lint PASS, full Vitest29/29 PASS; build with user's .env loaded and temporary process-only APP_ORIGIN=auto PASS; built Worker config confirms auto; browser bundle checked against configured backend/keyring secrets and none found. workerd same-origin accepted/cross-origin rejected plus streaming regression PASS. Existing .env APP_ORIGIN kept unchanged for local development. No deploy performed.

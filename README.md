@@ -6,6 +6,8 @@
 
 React + Vite + TypeScript · Hono บน Cloudflare Workers · Private R2 · Supabase Auth/PostgreSQL
 
+โฟลเดอร์นี้เป็น full-stack app: `src/web` คือ frontend และ `src/worker` คือ backend Deploy ทั้งคู่พร้อมกันเป็น Worker + Static Assets ใช้ `APP_ORIGIN=auto` บน production เพื่อไม่ต้องรู้ URL ก่อน deploy; local dev แยกพอร์ตให้ระบุ `http://127.0.0.1:5173` ตามเดิม
+
 ## เริ่มในเครื่อง
 
 ใช้ Node.js >=22.18 และ npm

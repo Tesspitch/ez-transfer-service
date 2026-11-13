@@ -14,7 +14,7 @@ const bindings = {
   R2_SECRET_ACCESS_KEY: "test",
   SHARE_CODE_KEYS: JSON.stringify({ v1: Buffer.alloc(32).toString("base64") }),
   SHARE_CODE_ACTIVE_KEY: "v1",
-  APP_ORIGIN: "https://app.example",
+  APP_ORIGIN: "auto",
 };
 const mf = new Miniflare(
   convertV4MiniflareOptions({
@@ -40,6 +40,20 @@ try {
         `Expected API authentication for ${pathname}, received ${r.status}: ${await r.text()}`,
       );
   }
+  const same = await mf.dispatchFetch("https://app.example/api/transfers", {
+    method: "POST",
+    headers: { Origin: "https://app.example" },
+  });
+  if (same.status !== 401)
+    throw new Error(
+      "Auto origin must accept same-origin browser requests before requiring normal API access",
+    );
+  const cross = await mf.dispatchFetch("https://app.example/api/transfers", {
+    method: "POST",
+    headers: { Origin: "https://evil.example" },
+  });
+  if (cross.status !== 403)
+    throw new Error("Auto origin must reject cross-origin browser requests");
   const response = await mf.dispatchFetch("https://app.example/receive");
   if (response.status !== 200 || !(await response.text()).includes('id="root"'))
     throw new Error("SPA assets unavailable");

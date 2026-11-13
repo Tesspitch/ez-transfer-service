@@ -29,9 +29,7 @@ export default defineConfig(({ mode }) => ({
       R2_BUCKET: bindings.text(
         process.env.R2_BUCKET ?? "terminal-transfer-staging",
       ),
-      APP_ORIGIN: bindings.text(
-        process.env.APP_ORIGIN ?? "http://127.0.0.1:5173",
-      ),
+      APP_ORIGIN: bindings.text(process.env.APP_ORIGIN ?? "auto"),
       DIRECT_UPLOAD_VERIFIED: bindings.text("false"),
       SHARE_CODE_ACTIVE_KEY: bindings.text("v1"),
       SUPABASE_SERVICE_ROLE_KEY: bindings.secret(),
