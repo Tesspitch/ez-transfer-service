@@ -1,5 +1,7 @@
 # TRANSFER
 
+> งานออกแบบล่าสุด: [ไม่ต้องล็อกอิน + ผู้รับเดียว/หลายผู้รับ](docs/superpowers/specs/2026-11-13-anonymous-sharing-design.md) และ [handoff สำหรับพัฒนาต่อ](docs/handoffs/2026-11-13-anonymous-sharing.md) — ยังไม่ได้เปลี่ยนโค้ด ตัวแอปด้านล่างอธิบาย baseline v1 ที่ยังใช้บัญชี
+
 เว็บส่งไฟล์ส่วนตัว/ภายในองค์กร ธีม terminal พร้อม System / Dark / Light
 
 React + Vite + TypeScript · Hono บน Cloudflare Workers · Private R2 · Supabase Auth/PostgreSQL

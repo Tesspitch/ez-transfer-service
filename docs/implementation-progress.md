@@ -26,3 +26,9 @@ Final: fixed independent reconciliation cursor completion flags — unequal scan
 Implementation status: Tasks1–7 code, migration, UI, local tests, build artifacts, CI and runbooks implemented. Provider provisioning/live browser R2 and 1GiB staging acceptance remain BLOCKED (no credentials supplied), so deployment/release gates are not marked complete. No resources created or production deploy performed.
 
 Local evidence: npm test -> 26 tests pass; npm run typecheck / lint -> pass; Chrome test:e2e -> 4 tests pass; npm run build -> official build output verified; cf deploy --prebuilt --mode production --dry-run -> pass; npm run test:runtime -> workerd auth/SPA plus strict streaming/error cases pass. Live test:integration -> BLOCKED missing staging env, intentionally fails rather than skipping.
+
+## New design request — no-login and recipient mode
+
+2026-11-13: user requested design + handoff only for removing account auth and choosing single/multiple recipients. Added authoritative v2 design and docs/handoffs/2026-11-13-anonymous-sharing.md; no product code or provider configuration changed. Proposed default single; atomic explicit claim with receiver capability, separate owner management capability, local browser history. Baseline tests above apply to v1 only and are not v2 verification.
+
+v2 builder review: one material gap corrected — pending/confirmed receiver records persist canonical code + transferId + token + claimRequestId before claim, with active pointer for reload after fragment removal; resolve rechecks server state. Reviewed local doc links resolve (5 checked). No runtime tests needed for this docs-only change. Unrelated concurrent .env.example edit preserved and excluded from docs commit.

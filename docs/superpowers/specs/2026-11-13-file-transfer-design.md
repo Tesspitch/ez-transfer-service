@@ -1,5 +1,7 @@
 # Terminal Transfer — System Design
 
+> **อัปเดตความต้องการล่าสุด:** การเปลี่ยนเป็นไม่ต้องล็อกอินและเมนูผู้รับเดียว/หลายผู้รับ ให้อ้างอิง [spec v2](2026-11-13-anonymous-sharing-design.md) ซึ่งแทนข้อกำหนด Auth/ownership/sharing ของเอกสารนี้ โค้ด baseline ยังเป็น v1 จนกว่าจะ implement [handoff](../../handoffs/2026-11-13-anonymous-sharing.md)
+
 วันที่: 13 พฤศจิกายน 2026 | สถานะ: ผู้ใช้สั่งเริ่ม implementation แล้ว; รายละเอียดปรับตามผลตรวจอยู่ใน docs/implementation-progress.md
 
 ## 1. เป้าหมายและขอบเขต
