@@ -40,3 +40,16 @@ v2 builder review: one material gap corrected — pending/confirmed receiver rec
 Provider retest with user's updated .env: Supabase budget RPC and server privileges PASS; R2 multipart create/upload/complete/HEAD/signed GET of34 bytes PASS; temporary test object deleted. List-all-buckets remains AccessDenied for the scoped token, which does not block configured bucket operations. No secrets printed or user .env/.env.example modified.
 
 Origin fix verification: typecheck/lint PASS, full Vitest29/29 PASS; build with user's .env loaded and temporary process-only APP_ORIGIN=auto PASS; built Worker config confirms auto; browser bundle checked against configured backend/keyring secrets and none found. workerd same-origin accepted/cross-origin rejected plus streaming regression PASS. Existing .env APP_ORIGIN kept unchanged for local development. No deploy performed.
+
+## v2 implementation — account authentication removed
+
+User explicitly confirmed the app must remove login, not stop at design. Implemented no-account UI/API, immutable single/multiple sharing, owner capabilities, atomic receiver claim with response-loss recovery, local browser history/management links, service-only transfer_rpc_v2 and additive migration0002. Removed Login/auth client/JWT verifier and direct jose dependency; browser no longer reads Supabase keys or calls auth endpoints. Existing user .env untouched.
+
+Ruling: optional RATE_KEY_SECRET falls back to a domain-separated HMAC key from the existing active SHARE_CODE_KEYS entry — no new mandatory credential during this change. Costs if key changes: daily IP buckets change; global storage reservation still enforced. Explicit override is available.
+Ruling: preserve legacy tables/v1 RPC for expand migration and cleanup compatibility, but all v2 app requests use v2 dispatcher and explicitly deny legacy rows. No old row becomes anonymously accessible. Rollout requires0002; no destructive schema reset.
+
+Fresh reviewer findings fixed with observed RED->GREEN: invalid management links could overwrite valid owner secrets (verify before persist); returning to previously claimed file omitted saved proof (canonical-code lookup across receiver records); blocked/quota storage hid memory fallback (volatile cache precedence). Audit actor_kind updated for owner/receiver actions.
+
+Evidence: npm test31/31 PASS; Chrome5/5 PASS including no login, sharing mode, reload claim, management link safety and dark/light/mobile screenshots; typecheck/lint/build/workerd runtime/cf prebuilt dry-run PASS. No deployment. Live RPC check returnsPGRST202 for transfer_rpc_v2: migration0002not yet applied. CUA database editor access stopped because the tool could not confidently verify the current browser URL; no database UI changes were performed and no alternate UI mechanism was used.
+
+Next operator step: run supabase/migrations/202611130002_anonymous_sharing.sql once in SupabaseSQL Editor (0001alreadyapplied), then restart Worker and hard-refresh frontend. Full1GiBstagingremainsunverified. SQL0002wasverifiedonlocalPostgreSQLbutnotremoteSupabase.

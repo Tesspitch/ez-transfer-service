@@ -1,7 +1,7 @@
 # TRANSFER v2 — ไม่ต้องล็อกอินและเลือกจำนวนผู้รับ
 
 วันที่: 13 พฤศจิกายน 2026
-สถานะ: ออกแบบและส่งต่องานตามคำขอผู้ใช้ ยังไม่ได้แก้ product code
+สถานะ: ผู้ใช้ยืนยันให้เอาการล็อกอินออกจากตัวแอปแล้ว; implementation v2อยู่ในworking tree ดูหลักฐานล่าสุดที่docs/implementation-progress.md
 Baseline implementation: commit `a22b40b`
 
 ## 1. ขอบเขตและลำดับเอกสาร
@@ -225,4 +225,4 @@ Fail closed ถ้า DB/rate check ไม่พร้อม; คง APP_ORIGIN 
 
 ## 11. งานที่ยังไม่ได้ทำในคำขอนี้
 
-เอกสารนี้และ handoff เป็นงานออกแบบ ไม่มีการแก้ app, migration, dependency, secrets หรือ deploy ตัวแอปใน baseline ยังต้องล็อกอินอยู่จนกว่าจะ implement handoff นี้ การทดสอบ26+4รายการจาก v1 ไม่ใช่หลักฐานว่า v2 ทำงานแล้ว
+เอกสารนี้เดิมเป็นdesign-only ต่อมาผู้ใช้ยืนยันให้แก้ตัวแอปจริงแล้ว จึงimplementตามhandoffนี้ โดยยังไม่deployและต้องรันmigration0002บนฐานข้อมูลจริง ผลทดสอบv1ไม่ใช่หลักฐานv2 ดูledgerและacceptanceล่าสุด

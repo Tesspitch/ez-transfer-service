@@ -8,6 +8,8 @@ export class AppError extends Error {
 }
 export function domainError(message: string): AppError {
   const codes: Record<string, number> = {
+    FILE_ALREADY_CLAIMED: 409,
+    MODE_MISMATCH: 409,
     NOT_FOUND: 404,
     FORBIDDEN: 403,
     QUOTA: 409,

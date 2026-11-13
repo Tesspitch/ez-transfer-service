@@ -6,6 +6,7 @@ import {
 } from "../../../shared/contracts";
 import { api, message } from "../../lib/api";
 import { bytes, date, copy, retentionLabels, grouped } from "../../lib/format";
+import { localTransfers } from "../../lib/local-transfers";
 export function MyFiles({ onChanged }: { onChanged: () => void }) {
   const [items, setItems] = useState<TransferView[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -20,10 +21,29 @@ export function MyFiles({ onChanged }: { onChanged: () => void }) {
     setBusy(true);
     setError("");
     try {
-      const result = await api<{
-        items: TransferView[];
-        nextCursor: string | null;
-      }>("/transfers" + (next ? "?cursor=" + encodeURIComponent(next) : ""));
+      const offset = next ? Number(next) : 0;
+      const local = localTransfers();
+      const page = local.slice(offset, offset + 25);
+      const loaded: TransferView[] = [];
+      for (let start = 0; start < page.length; start += 3) {
+        const rows = await Promise.all(
+          page.slice(start, start + 3).map(async (item) => {
+            try {
+              return await api<TransferView>(`/transfers/${item.id}`);
+            } catch (e) {
+              if (e instanceof Error && "status" in e && e.status === 404)
+                return null;
+              throw e;
+            }
+          }),
+        );
+        for (const row of rows)
+          if (row && row.state !== "deleted") loaded.push(row);
+      }
+      const result = {
+        items: loaded,
+        nextCursor: offset + 25 < local.length ? String(offset + 25) : null,
+      };
       setItems((old) => (next ? [...old, ...result.items] : result.items));
       setCursor(result.nextCursor);
     } catch (e) {
@@ -65,13 +85,16 @@ export function MyFiles({ onChanged }: { onChanged: () => void }) {
             <p className="command">
               <span>$</span> transfer list
             </p>
-            <h2>ไฟล์ของฉัน</h2>
+            <h2>ไฟล์บนเครื่องนี้</h2>
           </div>
           <button disabled={busy} onClick={() => void load()}>
             รีเฟรช ↻
           </button>
         </div>
-        <p className="muted">จัดการไฟล์ที่คุณส่ง และเรียกดูรหัสรับไฟล์อีกครั้ง</p>
+        <p className="muted">
+          ประวัติของเบราว์เซอร์นี้ ล้างข้อมูลหรือเปลี่ยนเครื่องแล้วรายการจะไม่ตามไปด้วย
+          เก็บลิงก์จัดการไว้เพื่อเปิดไฟล์เดิม
+        </p>
         <p role="alert" className="error">
           {error}
         </p>
@@ -91,7 +114,7 @@ export function MyFiles({ onChanged }: { onChanged: () => void }) {
         {!items.length && !busy && !error ? (
           <div className="empty-state">
             <span aria-hidden="true">[ ]</span>
-            <h3>ยังไม่มีไฟล์ที่ส่ง</h3>
+            <h3>ยังไม่มีไฟล์จากเบราว์เซอร์นี้</h3>
             <p className="muted">ไฟล์ที่คุณอัปโหลดจะแสดงที่นี่</p>
           </div>
         ) : (
@@ -107,6 +130,13 @@ export function MyFiles({ onChanged }: { onChanged: () => void }) {
                   </div>
                   <div className="file-info">
                     <h3>{file.name}</h3>
+                    <p>
+                      {file.shareMode === "multiple"
+                        ? "หลายผู้รับ"
+                        : file.claimedAt
+                          ? "ผู้รับเดียว · มีผู้รับแล้ว"
+                          : "ผู้รับเดียว · ยังไม่มีผู้รับ"}
+                    </p>
                     <p>
                       {bytes(file.sizeBytes)} <span>·</span>{" "}
                       {date(file.expiresAt)}

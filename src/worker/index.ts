@@ -1,7 +1,6 @@
 import { createApp } from "./app";
 import { createRepository } from "./db";
 import { createStorage } from "./storage/r2";
-import { tokenVerifier } from "./auth";
 import { runCleanup } from "./jobs/cleanup";
 import { reconcileOrphans } from "./jobs/reconcile";
 import type { Env } from "./env";
@@ -17,7 +16,6 @@ export default {
           budget,
         ),
         storage: createStorage(env, budget),
-        verify: tokenVerifier(env.SUPABASE_URL),
       };
       return await createApp(deps).fetch(request, env);
     } catch {

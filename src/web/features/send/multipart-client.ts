@@ -3,8 +3,14 @@ import type {
   UploadSessionView,
   SignedPart,
   ReadyView,
+  ShareMode,
 } from "../../../shared/contracts";
 import { api, putPart, ApiError } from "../../lib/api";
+import {
+  prepareUpload,
+  rememberTransfer,
+  finishPending,
+} from "../../lib/local-transfers";
 export interface UploadTransport {
   create(
     file: File,
@@ -22,40 +28,62 @@ export interface UploadTransport {
   cancel(id: string): Promise<void>;
   sleep(ms: number, signal: AbortSignal): Promise<void>;
 }
-const defaultTransport: UploadTransport = {
-  create: (file, retention, key, signal) =>
-    api("/transfers", {
-      method: "POST",
-      body: { name: file.name, sizeBytes: file.size, retention },
-      headers: { "Idempotency-Key": key },
-      signal,
-    }),
-  parts: async (id, partNumbers, signal) =>
-    (
-      await api<{ parts: SignedPart[] }>(`/transfers/${id}/parts`, {
+function defaultTransport(shareMode: ShareMode): UploadTransport {
+  return {
+    create: async (file, retention, _key, signal) => {
+      const pending = prepareUpload(
+        JSON.stringify([
+          file.name,
+          file.size,
+          file.lastModified,
+          retention,
+          shareMode,
+        ]),
+      );
+      const result = await api<UploadSessionView>("/transfers", {
         method: "POST",
-        body: { partNumbers },
+        body: { name: file.name, sizeBytes: file.size, retention, shareMode },
+        headers: {
+          "Idempotency-Key": pending.key,
+          "X-Transfer-Owner-Token": pending.ownerToken,
+        },
         signal,
-      })
-    ).parts,
-  put: (part, blob, signal) => putPart(part.url, blob, part.mode, signal),
-  complete: (id, signal) =>
-    api(`/transfers/${id}/complete`, { method: "POST", body: {}, signal }),
-  cancel: (id) => api(`/transfers/${id}`, { method: "DELETE" }),
-  sleep: (ms, signal) =>
-    new Promise((resolve, reject) => {
-      const abort = () => {
-        clearTimeout(timer);
-        reject(new DOMException("Aborted", "AbortError"));
-      };
-      const timer = setTimeout(() => {
-        signal.removeEventListener("abort", abort);
-        resolve();
-      }, ms);
-      signal.addEventListener("abort", abort, { once: true });
-      if (signal.aborted) abort();
-    }),
-};
+      });
+      rememberTransfer({
+        id: result.id,
+        ownerToken: pending.ownerToken,
+        createdAt: new Date().toISOString(),
+      });
+      finishPending();
+      return result;
+    },
+    parts: async (id, partNumbers, signal) =>
+      (
+        await api<{ parts: SignedPart[] }>(`/transfers/${id}/parts`, {
+          method: "POST",
+          body: { partNumbers },
+          signal,
+        })
+      ).parts,
+    put: (part, blob, signal) => putPart(part.url, blob, part.mode, signal),
+    complete: (id, signal) =>
+      api(`/transfers/${id}/complete`, { method: "POST", body: {}, signal }),
+    cancel: (id) => api(`/transfers/${id}`, { method: "DELETE" }),
+    sleep: (ms, signal) =>
+      new Promise((resolve, reject) => {
+        const abort = () => {
+          clearTimeout(timer);
+          reject(new DOMException("Aborted", "AbortError"));
+        };
+        const timer = setTimeout(() => {
+          signal.removeEventListener("abort", abort);
+          resolve();
+        }, ms);
+        signal.addEventListener("abort", abort, { once: true });
+        if (signal.aborted) abort();
+      }),
+  };
+}
 export async function uploadFile(
   file: File,
   retention: Retention,
@@ -63,9 +91,11 @@ export async function uploadFile(
     signal: AbortSignal;
     onProgress: (bytes: number) => void;
     transport?: UploadTransport;
+    shareMode?: ShareMode;
   },
 ): Promise<ReadyView> {
-  const transport = options.transport ?? defaultTransport;
+  const transport =
+    options.transport ?? defaultTransport(options.shareMode ?? "single");
   const controller = new AbortController();
   const forward = () => controller.abort();
   options.signal.addEventListener("abort", forward, { once: true });

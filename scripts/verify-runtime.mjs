@@ -18,6 +18,8 @@ const bindings = {
 };
 const mf = new Miniflare(
   convertV4MiniflareOptions({
+    outboundService: async () =>
+      new Response("{}", { headers: { "Content-Type": "application/json" } }),
     modules: true,
     scriptPath: path.join(getWorkerBundleDir(process.cwd()), "index.js"),
     compatibilityDate: "2026-11-13",
@@ -34,19 +36,21 @@ const mf = new Miniflare(
 );
 try {
   for (const pathname of ["/api/me", "/api/unknown", "/api"]) {
-    const r = await mf.dispatchFetch("https://app.example" + pathname);
-    if (r.status !== 401)
+    const r = await mf.dispatchFetch("https://app.example" + pathname, {
+      headers: { "CF-Connecting-IP": "192.0.2.1" },
+    });
+    if (r.status !== 404)
       throw new Error(
-        `Expected API authentication for ${pathname}, received ${r.status}: ${await r.text()}`,
+        `Expected public API routing for ${pathname}, received ${r.status}: ${await r.text()}`,
       );
   }
   const same = await mf.dispatchFetch("https://app.example/api/transfers", {
     method: "POST",
-    headers: { Origin: "https://app.example" },
+    headers: { Origin: "https://app.example", "CF-Connecting-IP": "192.0.2.1" },
   });
-  if (same.status !== 401)
+  if (same.status !== 404)
     throw new Error(
-      "Auto origin must accept same-origin browser requests before requiring normal API access",
+      "Auto origin must accept same-origin requests while requiring an owner capability",
     );
   const cross = await mf.dispatchFetch("https://app.example/api/transfers", {
     method: "POST",
@@ -58,7 +62,7 @@ try {
   if (response.status !== 200 || !(await response.text()).includes('id="root"'))
     throw new Error("SPA assets unavailable");
   console.log(
-    "Workers runtime: authentication boundary and SPA routing verified.",
+    "Workers runtime: public routing, owner capability boundary and SPA routing verified.",
   );
 } finally {
   await mf.dispose();

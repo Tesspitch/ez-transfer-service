@@ -1,38 +1,50 @@
 # TRANSFER
 
-> งานออกแบบล่าสุด: [ไม่ต้องล็อกอิน + ผู้รับเดียว/หลายผู้รับ](docs/superpowers/specs/2026-11-13-anonymous-sharing-design.md) และ [handoff สำหรับพัฒนาต่อ](docs/handoffs/2026-11-13-anonymous-sharing.md) — ยังไม่ได้เปลี่ยนโค้ด ตัวแอปด้านล่างอธิบาย baseline v1 ที่ยังใช้บัญชี
+เว็บส่งไฟล์ข้ามเครื่อง **ไม่ต้องสมัครหรือล็อกอิน** ธีม terminal พร้อม System / Dark / Light
 
-เว็บส่งไฟล์ส่วนตัว/ภายในองค์กร ธีม terminal พร้อม System / Dark / Light
+React + Vite + TypeScript · Hono/Cloudflare Workers · Private R2 · Supabase PostgreSQL
 
-React + Vite + TypeScript · Hono บน Cloudflare Workers · Private R2 · Supabase Auth/PostgreSQL
+โฟลเดอร์นี้มีทั้ง frontend (`src/web`) และ backend (`src/worker`) deploy ด้วยกันเป็น Worker + Static Assets ใช้ APP_ORIGIN=auto สำหรับ production
 
-โฟลเดอร์นี้เป็น full-stack app: `src/web` คือ frontend และ `src/worker` คือ backend Deploy ทั้งคู่พร้อมกันเป็น Worker + Static Assets ใช้ `APP_ORIGIN=auto` บน production เพื่อไม่ต้องรู้ URL ก่อน deploy; local dev แยกพอร์ตให้ระบุ `http://127.0.0.1:5173` ตามเดิม
+## เริ่มใช้งาน
 
-## เริ่มในเครื่อง
-
-ใช้ Node.js >=22.18 และ npm
+ใช้ Node.js >=22.18 แล้วตั้งค่า Worker ใน `.env` ตาม `.env.example` หน้าเว็บไม่ต้องมี VITE_SUPABASE_URL หรือ publishable key อีกแล้ว
 
 ```powershell
 npm ci
-Copy-Item .env.example .env.local
-# .env.local ใส่เฉพาะ VITE_SUPABASE_URL และ VITE_SUPABASE_PUBLISHABLE_KEY
 npm run dev
 ```
 
-หากต้องการทดลองแค่ UI สามารถเปิดหน้า login ได้แม้ยังไม่ตั้งบัญชีจริง ส่วน flow ทดสอบ browser ใช้ API fixtures ซึ่งไม่ใช่ระบบเก็บไฟล์จริง
-
-สำหรับใช้งานจริงในเครื่อง ตั้ง `.dev.vars` ตาม [คู่มือตั้งบริการ](docs/runbooks/provider-setup.md) แล้วเปิดสอง terminal:
+เปิดหน้าเว็บเห็น Send ทันที ไม่มี login หาก Vite ย้าย port ให้อ่าน URL ที่ terminal แสดง ส่วน API ต้องเปิด Worker ด้วย:
 
 ```powershell
-npm run build
+node --env-file=.env --run build
 npm run dev:worker
 ```
 
-```powershell
-npm run dev
-```
+dev:worker อ่าน .env ได้เอง (และอ่าน .dev.vars เมื่อมี) Vite proxy /api ไป127.0.0.1:8787 ตั้ง APP_ORIGIN ให้ตรงหน้าเว็บที่เปิดจริง เช่น http://localhost:5174; ใช้ APP_ORIGIN=auto เมื่อเปิด frontend+API ผ่าน Worker URL เดียวกันที่8787หรือproduction
 
-หน้าเว็บอยู่ http://127.0.0.1:5173, API proxy ไป Worker ที่ port 8787; Worker ใช้ staging R2/Supabase จริง ไม่ใช่ storage จำลอง อัปเดต source Worker แล้ว build/restart อีกครั้ง
+## Migration ที่ต้องรัน
+
+โปรเจกต์ใหม่รันตามลำดับใน Supabase SQL Editor:
+
+1. `supabase/migrations/202611130001_transfer_core.sql`
+2. `supabase/migrations/202611130002_anonymous_sharing.sql`
+
+**หากรัน0001แล้ว ให้รันเฉพาะ0002เพิ่มเติม** ไม่ต้องสร้างบัญชีผู้ใช้/allowlist และห้ามรัน0001ซ้ำ แถวเก่ารุ่นloginไม่ถูกเปิดเผยให้ anonymous โดยอัตโนมัติ
+
+## พฤติกรรม
+
+- ไฟล์ละสูงสุด1GiB, พื้นที่stored+reservedรวม8GiB
+- เลือกผู้รับเดียว (ค่าเริ่มต้น) หรือหลายผู้รับก่อนเริ่มส่ง
+- ผู้รับเดียว: คนแรกกดรับสิทธิ์ได้ ดาวน์โหลดซ้ำได้จนไฟล์หมดอายุ การเปิดลิงก์/ค้นหารหัสไม่consume
+- หลายผู้รับ: ทุกคนที่มีukidรับได้จนหมดอายุ
+- อายุ1h/24h(default)/7d/จนกว่าจะลบเอง เริ่มหลังอัปโหลดสำเร็จ
+- ลิงก์จัดการแยกจากรหัสรับไฟล์ ใช้ลบ/เปลี่ยนอายุเฉพาะรายการ อย่าส่งให้ผู้รับ
+- ไฟล์บนเครื่องนี้เป็นประวัติlocal browser ไม่ใช่บัญชีออนไลน์ ล้างข้อมูลแล้วต้องใช้ลิงก์จัดการที่สำรองไว้
+- สิทธิ์ผู้รับเดียวเก็บในsessionStorage ของtab เก็บtabไว้เพื่อดาวน์โหลดซ้ำ ไม่มีการยืนยันตัวบุคคลจริงหรือห้ามคัดลอกสิทธิ์ต่อ
+- ไฟล์อยู่private R2; database RPCใช้service keyเฉพาะWorker ไม่มีSupabasekeyในbrowser
+- Multipart16MiB/concurrency3 ใช้bounded proxyจนdirectuploadผ่านliveverification
 
 ## ตรวจงาน
 
@@ -45,28 +57,17 @@ npm run test:runtime
 npm run test:e2e
 ```
 
-Chrome ต้องติดตั้งอยู่ในเครื่อง (CI ติดตั้งด้วย Playwright); หากมี HTTP proxy ให้ตั้ง NO_PROXY=127.0.0.1,localhost เมื่อทดสอบ browser
+Chromeต้องติดตั้งอยู่ในเครื่อง; หากมีproxyให้ตั้งNO_PROXY=127.0.0.1,localhost
 
-`npm run test:integration` ต้องใช้ staging R2 credentials และ CORS จริง ถ้าไม่มีจะรายงาน BLOCKED และออกด้วยสถานะล้มเหลว ไม่ข้ามเงียบ ๆ
-
-## ข้อกำหนดที่ใช้งาน
-
-- หนึ่งไฟล์ต่อรายการ สูงสุด 1 GiB; พื้นที่ stored + reserved เริ่มต้น 8 GiB
-- เก็บ 1 ชั่วโมง / 24 ชั่วโมง (default) / 7 วัน / จนกว่าจะลบเอง
-- บัญชีที่อยู่ใน allowlist เท่านั้น การรับไฟล์ต้องมี ukid ด้วย ยกเว้นเจ้าของ
-- อัปโหลดแบบ multipart 16 MiB ไม่เกิน 3 ส่วนพร้อมกัน
-- รุ่นเริ่มต้นใช้ bounded streaming proxy; direct upload ปิดจนยืนยัน R2 signature/size enforcement จริง
-- ไฟล์และรหัสพร้อมหลังตรวจอัปโหลดครบแล้ว ปิดเครื่องต้นทางได้
-- รหัสหมดอายุทันทีตาม server time; พื้นที่คืนเมื่องานลบสำเร็จจริง กรณี provider response กำกวมอาจ pending ถึง 24 ชั่วโมง
-- ไม่ทำ preview/execute ไฟล์ ไม่มี antivirus หรือ E2EE ในรุ่นนี้
+Live integrationแยกต่างหาก: `npm run test:integration` ต้องมีstagingenv ไม่ใช้ผลlocaltestsแทนผลSupabase/R2จริง
 
 ## เอกสาร
 
-- [Spec](docs/superpowers/specs/2026-11-13-file-transfer-design.md)
-- [แผนพัฒนา](docs/superpowers/plans/2026-11-13-file-transfer.md)
-- [ค่าตั้งบริการ](docs/runbooks/provider-setup.md)
+- [Spec v2](docs/superpowers/specs/2026-11-13-anonymous-sharing-design.md)
+- [Handoff](docs/handoffs/2026-11-13-anonymous-sharing.md)
+- [ตั้งบริการ](docs/runbooks/provider-setup.md)
 - [Deploy](docs/runbooks/deploy.md)
 - [Operations](docs/runbooks/operations.md)
-- [ผลตรวจและงานที่ยังต้องยืนยัน](docs/runbooks/acceptance.md)
+- [Acceptance](docs/runbooks/acceptance.md)
 
-การทดสอบในเครื่องไม่ใช่หลักฐานว่า production credentials, region, billing และสิทธิ์ของบริการจริงถูกต้อง ต้องผ่าน staging ก่อน deploy
+ไม่มีantivirus/preview/E2EEในรุ่นนี้ โควตาของแอปไม่ใช่provider spending cap และSupabaseFreeอาจพักเมื่อidle

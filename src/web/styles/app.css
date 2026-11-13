@@ -706,3 +706,66 @@ progress::-webkit-progress-value {
     scroll-behavior: auto !important;
   }
 }
+
+.share-options {
+  border: 0;
+  padding: 0;
+  margin: 25px 0;
+}
+.share-options legend {
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+.share-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.share-card {
+  border: 1px solid var(--border);
+  padding: 16px;
+  border-radius: 4px;
+  background: var(--bg);
+  cursor: pointer;
+  gap: 9px;
+}
+.share-card + .share-card {
+  margin-top: 0;
+}
+.share-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.share-card > span {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.share-card input {
+  width: 16px;
+  min-height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.share-card small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.8;
+}
+.management-section {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+.management-section input {
+  font: 11px var(--mono);
+  margin-bottom: 12px;
+}
+.management-section button {
+  font-size: 0.8rem;
+}
+@media (max-width: 720px) {
+  .share-cards {
+    grid-template-columns: 1fr;
+  }
+}

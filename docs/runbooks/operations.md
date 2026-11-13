@@ -13,7 +13,7 @@ Cron ทุกนาที claim สูงสุด 3 รายการต่�
 ## สิ่งที่ต้อง monitor
 
 - Cron heartbeat, จำนวน claimed/deleted/retried และ job เกิน 10 นาที ตั้ง alert บน query/dashboard ของผู้ให้บริการตามบัญชีจริง
-- Supabase availability/paused project, RPC error rate, authentication errors
+- Supabase availability/paused project, RPC error rate, owner/receiver capability denials
 - R2 storage GB-month, request operations, ค่าใช้จ่าย; pending multipart ใช้พื้นที่ด้วย
 - `stored_bytes + reserved_bytes` เทียบ object+multipart จริง; app guardrail 8 GiB ไม่ใช่ provider spending cap
 
@@ -33,3 +33,5 @@ where transfer_id='VERIFIED_TRANSFER_UUID';
 ## ข้อจำกัด
 
 ไม่รองรับ resume หลัง reload tab; upload ค้างหมดอายุ 2 ชั่วโมงแล้ว cleanup ไฟล์ ready ไม่หมดอายุยังนับพื้นที่จนผู้ส่งลบ ไม่มี antivirus/preview/E2EE ไฟล์ควรเป็นข้อมูลที่องค์กรอนุญาตให้เก็บภายนอกได้
+
+รุ่นv2ไม่มีบัญชี: owner management linkใช้ลบ/เปลี่ยนอายุเฉพาะรายการ; ukidไม่ให้สิทธิ์จัดการ singlereceiverเป็นคนแรกที่claimและเก็บsessionStorage ไม่ใช่ยืนยันตัวบุคคล ถ้าหายทั้งownerhistoryและmanagementlinkจะกู้จากukidไม่ได้ ไฟล์foreverที่ไม่มีownerproofต้องให้operatorตรวจและลบตามrunbook

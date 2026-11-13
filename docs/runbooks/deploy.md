@@ -14,7 +14,7 @@ Flow: สร้าง Supabase/R2 และใส่ config/secrets -> APP_ORIGI
 
 ใช้ Cloudflare cf CLI ที่ pin ใน package-lock.json ไม่สร้าง Wrangler config โปรเจกต์นี้มี custom packager ใช้ official @cloudflare/config + @cloudflare/build-output-utils เพราะ Vite plugin ที่ติดตั้งได้ขณะพัฒนาไม่รับ config .ts ตาม docs ใหม่ ใช้ `npm run build` และ `cf deploy --prebuilt` แทน `cf build`
 
-1. ตั้ง public frontend env VITE_SUPABASE_URL/VITE_SUPABASE_PUBLISHABLE_KEY สำหรับ environment เป้าหมาย
+1. รุ่นv2ไม่มีfrontendSupabaseenvหรือAuth ใช้same-origin /api ตรวจว่าmigration0002ถูกนำไปใช้แล้ว ไม่ต้องสร้างบัญชีผู้ใช้
 2. ตั้ง SUPABASE_URL, R2_ACCOUNT_ID, R2_BUCKET ใน process env ก่อน build และใช้ APP_ORIGIN=auto สำหรับ production same-origin; ห้ามใช้ bucket production ใน staging
 3. production: `npm run build`; staging: ตั้ง TRANSFER_MODE=staging แล้ว `npm run build`
 4. Build จะเขียน `.cloudflare/output/v0/` พร้อม bundle, config และ static assets; packager ตรวจ schema กับ CLI libraries ที่ pin แล้ว ไม่เก็บ secret values ใน output
@@ -41,7 +41,7 @@ Domain ใช้ workers.dev หรือกำหนด worker.domains ใน c
 
 ## Release gate
 
-รัน typecheck, lint, npm test, build, test:runtime, test:e2e และ staging integration จริง ตรวจ bundle ไม่มี service keys, bucket เป็น private, membership deny, download expiry, quota, cron retry และ checksum ไฟล์ 1 GiB ตาม acceptance ก่อนเปิดใช้
+รัน typecheck, lint, npm test, build, test:runtime, test:e2e และ staging integration จริง ตรวจ bundle ไม่มี service keys, bucket เป็น private, owner/receiver capability deny, single atomic claim, multipleรับซ้ำ, download expiry, quota, cron retry และ checksum ไฟล์1GiB ตามacceptanceก่อนเปิดใช้
 
 `DIRECT_UPLOAD_VERIFIED` ใน config เป็น false โดยตั้งใจ อย่าเปิดจากการผ่าน unit tests ต้องผ่าน browser R2 mismatch-size test และ code review การเปลี่ยนโหมดก่อน
 

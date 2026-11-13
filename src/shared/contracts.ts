@@ -3,6 +3,14 @@ export const MAX_FILE_BYTES = 1_073_741_824;
 export const PART_BYTES = 16_777_216;
 export const RETENTIONS = ["1h", "24h", "7d", "forever"] as const;
 export type Retention = (typeof RETENTIONS)[number];
+export type ShareMode = "single" | "multiple";
+export interface OwnerProof {
+  ownerHash: string;
+}
+export interface AccessProof {
+  ownerHash?: string;
+  receiverHash?: string;
+}
 export type TransferState =
   "allocating" | "uploading" | "finalizing" | "ready" | "deleting" | "deleted";
 export const createTransferSchema = z.object({
@@ -12,6 +20,7 @@ export const createTransferSchema = z.object({
     .pipe(z.string().min(1).max(255)),
   sizeBytes: z.number().int().min(1).max(MAX_FILE_BYTES),
   retention: z.enum(RETENTIONS).default("24h"),
+  shareMode: z.enum(["single", "multiple"]).default("single"),
 });
 export const partsSchema = z.object({
   partNumbers: z
@@ -20,7 +29,9 @@ export const partsSchema = z.object({
     .max(3)
     .refine((a) => new Set(a).size === a.length),
 });
-export const retentionSchema = z.object({ retention: z.enum(RETENTIONS) });
+export const retentionSchema = z
+  .object({ retention: z.enum(RETENTIONS) })
+  .strict();
 export const codeSchema = z.object({ code: z.string().min(1).max(64) });
 export function expiresAt(retention: Retention, now: Date): string | null {
   return retention === "forever"
@@ -54,6 +65,11 @@ export interface Member {
 export interface TransferRecord {
   id: string;
   owner_id: string;
+  owner_token_hash?: string;
+  share_mode?: ShareMode;
+  receiver_token_hash?: string | null;
+  receiver_claim_request_id?: string | null;
+  claimed_at?: string | null;
   original_name: string;
   size_bytes: number;
   object_key: string;
@@ -81,6 +97,8 @@ export interface TransferView {
   readyAt: string | null;
   expiresAt: string | null;
   createdAt: string;
+  shareMode?: ShareMode;
+  claimedAt?: string | null;
 }
 export function view(t: TransferRecord): TransferView {
   return {
@@ -92,6 +110,8 @@ export function view(t: TransferRecord): TransferView {
     readyAt: t.ready_at,
     expiresAt: t.expires_at,
     createdAt: t.created_at,
+    shareMode: t.share_mode,
+    claimedAt: t.claimed_at,
   };
 }
 export interface UploadSessionView {
@@ -101,6 +121,7 @@ export interface UploadSessionView {
   partCount: number;
   uploadDeadline: string;
   mode: "proxy" | "direct";
+  shareMode?: ShareMode;
 }
 export interface SignedPart {
   partNumber: number;
@@ -113,6 +134,7 @@ export interface ReadyView {
   code: string;
   readyAt: string;
   expiresAt: string | null;
+  shareMode?: ShareMode;
 }
 export interface Budget {
   limit_bytes: number;

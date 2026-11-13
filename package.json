@@ -27,7 +27,6 @@
     "@aws-sdk/s3-request-presigner": "^3.900.0",
     "@supabase/supabase-js": "^2.80.0",
     "hono": "^4.10.0",
-    "jose": "^6.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zod": "^4.1.0"

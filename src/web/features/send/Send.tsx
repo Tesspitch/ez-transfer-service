@@ -4,13 +4,19 @@ import {
   RETENTIONS,
   type Retention,
   type ReadyView,
+  type ShareMode,
 } from "../../../shared/contracts";
 import { uploadFile } from "./multipart-client";
 import { bytes, date, copy, grouped, retentionLabels } from "../../lib/format";
 import { message } from "../../lib/api";
+import {
+  managementLink,
+  persistentStorageAvailable,
+} from "../../lib/local-transfers";
 export function Send({ onChanged }: { onChanged: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [retention, setRetention] = useState<Retention>("24h");
+  const [shareMode, setShareMode] = useState<ShareMode>("single");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(0);
   const [error, setError] = useState("");
@@ -93,6 +99,40 @@ export function Send({ onChanged }: { onChanged: () => void }) {
             </span>
             <span className="tag">MAX 1 GiB / SINGLE FILE</span>
           </button>
+          <fieldset className="share-options" disabled={busy}>
+            <legend>แชร์ไฟล์ให้</legend>
+            <div className="share-cards">
+              {(["single", "multiple"] as const).map((mode) => (
+                <label
+                  className={
+                    shareMode === mode ? "share-card selected" : "share-card"
+                  }
+                  key={mode}
+                >
+                  <span>
+                    <input
+                      type="radio"
+                      name="shareMode"
+                      value={mode}
+                      checked={shareMode === mode}
+                      onChange={() => setShareMode(mode)}
+                    />
+                    <strong>{mode === "single" ? "ผู้รับเดียว" : "หลายผู้รับ"}</strong>
+                  </span>
+                  <small>
+                    {mode === "single"
+                      ? "คนแรกที่กดรับสิทธิ์จะรับไฟล์ได้"
+                      : "ทุกคนที่มีรหัสรับได้จนหมดอายุ"}
+                  </small>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          {!persistentStorageAvailable() && (
+            <p className="hint">
+              เบราว์เซอร์บันทึกประวัติไม่ได้ กรุณาเก็บลิงก์จัดการหลังส่งไฟล์
+            </p>
+          )}
           <label className="retention-label">
             เก็บไฟล์ไว้
             <select
@@ -143,6 +183,7 @@ export function Send({ onChanged }: { onChanged: () => void }) {
                     await uploadFile(file, retention, {
                       signal: abort.current.signal,
                       onProgress: setSent,
+                      shareMode,
                     }),
                   );
                   setStatus("อัปโหลดสำเร็จ พร้อมรับไฟล์จากอีกเครื่อง");
@@ -185,6 +226,9 @@ export function Send({ onChanged }: { onChanged: () => void }) {
           </p>
           {ready && (
             <div className="result">
+              <p className="badge ready">
+                {ready.shareMode === "multiple" ? "หลายผู้รับ" : "ผู้รับเดียว"}
+              </p>
               <div className="eyebrow">TRANSFER READY</div>
               <label>
                 รหัสรับไฟล์
@@ -222,6 +266,34 @@ export function Send({ onChanged }: { onChanged: () => void }) {
                 </button>
               </div>
               <p className="hint">หมดอายุ: {date(ready.expiresAt)}</p>
+              <p className="hint">
+                {ready.shareMode === "multiple"
+                  ? "ทุกคนที่มีรหัสนี้รับไฟล์ได้จนหมดอายุ"
+                  : "คนแรกที่กดรับสิทธิ์จะใช้รหัสนี้รับไฟล์ได้"}
+              </p>
+              <div className="management-section">
+                <h3>จัดการไฟล์นี้</h3>
+                <p className="hint">
+                  เก็บลิงก์นี้ไว้สำหรับลบหรือเปลี่ยนอายุไฟล์ อย่าส่งให้ผู้รับ
+                </p>
+                <input
+                  aria-label="ลิงก์จัดการไฟล์"
+                  readOnly
+                  value={managementLink(ready.id)}
+                  onFocus={(e) => e.target.select()}
+                />
+                <button
+                  onClick={async () =>
+                    setStatus(
+                      (await copy(managementLink(ready.id)))
+                        ? "คัดลอกลิงก์จัดการแล้ว"
+                        : "เลือกลิงก์จัดการด้านบนเพื่อคัดลอกเองได้",
+                    )
+                  }
+                >
+                  คัดลอกลิงก์จัดการ
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -248,7 +320,7 @@ export function Send({ onChanged }: { onChanged: () => void }) {
               <span>03</span>
               <div>
                 <strong>เปิดเว็บบนอีกเครื่อง</strong>
-                <p>เข้าสู่ระบบ กรอกรหัส แล้วดาวน์โหลด</p>
+                <p>กรอกรหัส แล้วดาวน์โหลดได้เลย</p>
               </div>
             </li>
           </ol>

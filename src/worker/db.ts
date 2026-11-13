@@ -19,7 +19,7 @@ export function createRepository(
   });
   return {
     async call<T>(action: string, p: Record<string, unknown> = {}) {
-      const { data, error } = await db.rpc("transfer_rpc", { action, p });
+      const { data, error } = await db.rpc("transfer_rpc_v2", { action, p });
       if (error) throw domainError(error.message);
       return data as T;
     },

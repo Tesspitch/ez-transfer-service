@@ -31,7 +31,9 @@ export default defineConfig(({ mode }) => ({
       ),
       APP_ORIGIN: bindings.text(process.env.APP_ORIGIN ?? "auto"),
       DIRECT_UPLOAD_VERIFIED: bindings.text("false"),
-      SHARE_CODE_ACTIVE_KEY: bindings.text("v1"),
+      SHARE_CODE_ACTIVE_KEY: bindings.text(
+        process.env.SHARE_CODE_ACTIVE_KEY ?? "v1",
+      ),
       SUPABASE_SERVICE_ROLE_KEY: bindings.secret(),
       R2_ACCESS_KEY_ID: bindings.secret(),
       R2_SECRET_ACCESS_KEY: bindings.secret(),

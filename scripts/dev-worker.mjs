@@ -5,6 +5,7 @@ import { getWorkerBundleDir } from "@cloudflare/build-output-utils";
 import workerd from "workerd";
 process.env.MINIFLARE_WORKERD_PATH =
   typeof workerd === "string" ? workerd : workerd.default;
+if (existsSync(".env")) process.loadEnvFile(".env");
 if (existsSync(".dev.vars")) process.loadEnvFile(".dev.vars");
 const names = [
   "SUPABASE_URL",

@@ -2,7 +2,8 @@ import {
   PART_BYTES,
   partSize,
   partsSchema,
-  type Member,
+  type OwnerProof,
+  type ShareMode,
   type TransferRecord,
   type UploadSessionView,
   type Retention,
@@ -26,13 +27,19 @@ export class UploadService {
     private env: Env,
   ) {}
   async create(
-    member: Member,
-    input: { name: string; sizeBytes: number; retention: Retention },
+    owner: OwnerProof,
+    input: {
+      name: string;
+      sizeBytes: number;
+      retention: Retention;
+      shareMode: ShareMode;
+    },
     key: string,
+    rateKey: string,
   ): Promise<UploadSessionView> {
     let row = await this.repo.call<TransferRecord & { _created: boolean }>(
       "reserve",
-      { userId: member.userId, ...input, key },
+      { ownerHash: owner.ownerHash, ...input, key, rateKey },
     );
     if (row._created) {
       try {
@@ -57,6 +64,7 @@ export class UploadService {
     return {
       id: row.id,
       state: row.state,
+      shareMode: row.share_mode,
       partSizeBytes: PART_BYTES,
       partCount: Math.ceil(row.size_bytes / PART_BYTES),
       uploadDeadline: row.hard_deadline,
@@ -64,13 +72,13 @@ export class UploadService {
     };
   }
   async signParts(
-    member: Member,
+    owner: OwnerProof,
     id: string,
     values: number[],
   ): Promise<SignedPart[]> {
     const { partNumbers } = partsSchema.parse({ partNumbers: values });
     const row = await this.repo.call<TransferRecord>("parts", {
-      userId: member.userId,
+      ownerHash: owner.ownerHash,
       id,
       until: new Date(Date.now() + 600000).toISOString(),
     });
@@ -101,14 +109,14 @@ export class UploadService {
     );
   }
   async putPart(
-    member: Member,
+    owner: OwnerProof,
     id: string,
     part: number,
     body: ReadableStream<Uint8Array> | null,
   ): Promise<void> {
     if (!body) throw new AppError("INVALID");
     const row = await this.repo.call<TransferRecord>("parts", {
-      userId: member.userId,
+      ownerHash: owner.ownerHash,
       id,
       until: new Date(Date.now() + 120000).toISOString(),
     });
@@ -127,9 +135,9 @@ export class UploadService {
     );
     // A delete may have won during the external part operation. It must not authorize completion.
   }
-  async complete(member: Member, id: string): Promise<ReadyView> {
+  async complete(owner: OwnerProof, id: string): Promise<ReadyView> {
     let row = await this.repo.call<TransferRecord>("begin_finalize", {
-      userId: member.userId,
+      ownerHash: owner.ownerHash,
       id,
     });
     if (row.state !== "ready") {
@@ -167,7 +175,7 @@ export class UploadService {
         });
       } catch (e) {
         const current = await this.repo
-          .call<TransferRecord>("owned", { id, userId: member.userId })
+          .call<TransferRecord>("owned", { id, ownerHash: owner.ownerHash })
           .catch(() => null);
         if (current?.state === "ready") row = current;
         else {
@@ -188,6 +196,7 @@ export class UploadService {
       ),
       readyAt: row.ready_at!,
       expiresAt: row.expires_at,
+      shareMode: row.share_mode,
     };
   }
 }

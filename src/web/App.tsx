@@ -1,28 +1,53 @@
 import { useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { authClient } from "./lib/auth";
-import { api } from "./lib/api";
-import { bytes } from "./lib/format";
 import { applyTheme, storedTheme, type Theme } from "./theme";
-import { Login } from "./features/auth/Login";
 import { Send } from "./features/send/Send";
 import { Receive } from "./features/receive/Receive";
 import { MyFiles } from "./features/files/MyFiles";
-import type { Budget } from "../shared/contracts";
-const initialCode =
-  new URLSearchParams(location.hash.slice(1)).get("code") ?? "";
+import { rememberTransfer } from "./lib/local-transfers";
+import { api } from "./lib/api";
+const fragment = new URLSearchParams(location.hash.slice(1));
+const initialCode = fragment.get("code") ?? "";
+let managementCandidate: { id: string; ownerToken: string } | null = null;
+if (location.pathname === "/manage") {
+  const id = fragment.get("id"),
+    ownerToken = fragment.get("owner");
+  if (
+    id &&
+    ownerToken &&
+    /^[A-Za-z0-9_-]{43}$/.test(ownerToken) &&
+    /^[0-9a-f-]{36}$/i.test(id)
+  )
+    managementCandidate = { id, ownerToken };
+}
 if (location.hash)
   history.replaceState(null, "", location.pathname + location.search);
 type Tab = "send" | "receive" | "files";
 export function App() {
+  const [managementPending, setManagementPending] =
+    useState(!!managementCandidate);
+  const [managementError, setManagementError] = useState("");
+  useEffect(() => {
+    const candidate = managementCandidate;
+    if (!candidate) return;
+    void api(`/transfers/${candidate.id}`, {
+      headers: { "X-Transfer-Owner-Token": candidate.ownerToken },
+    })
+      .then(() => {
+        rememberTransfer({ ...candidate, createdAt: new Date().toISOString() });
+      })
+      .catch(() =>
+        setManagementError("ลิงก์จัดการไม่ถูกต้องหรือไฟล์ไม่พร้อมใช้งาน ประวัติเดิมยังอยู่"),
+      )
+      .finally(() => setManagementPending(false));
+  }, []);
   const [theme, setTheme] = useState<Theme>(storedTheme);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(!!authClient);
   const [tab, setTab] = useState<Tab>(
-    location.pathname === "/receive" ? "receive" : "send",
+    location.pathname === "/receive"
+      ? "receive"
+      : ["/files", "/manage"].includes(location.pathname)
+        ? "files"
+        : "send",
   );
-  const [budget, setBudget] = useState<Budget | null>(null);
-  const [memberError, setMemberError] = useState("");
   useEffect(() => {
     applyTheme(theme);
     const mq = matchMedia("(prefers-color-scheme: dark)");
@@ -32,46 +57,6 @@ export function App() {
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, [theme]);
-  useEffect(() => {
-    if (!authClient) return;
-    let active = true;
-    void authClient.auth
-      .getSession()
-      .then(({ data }) => {
-        if (active) {
-          setSession(data.session);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (active) setLoading(false);
-      });
-    const { data } = authClient.auth.onAuthStateChange((_event, s) => {
-      if (active) {
-        setSession(s);
-        setLoading(false);
-      }
-    });
-    return () => {
-      active = false;
-      data.subscription.unsubscribe();
-    };
-  }, []);
-  const refresh = () => {
-    if (session)
-      void api<{ budget: Budget }>("/me")
-        .then((r) => {
-          setBudget(r.budget);
-          setMemberError("");
-        })
-        .catch((e) => {
-          setBudget(null);
-          setMemberError(e instanceof Error ? e.message : "ระบบยังไม่พร้อม");
-        });
-  };
-  useEffect(() => {
-    refresh();
-  }, [session]); // membership is rechecked server-side for every request
   const navigate = (next: Tab) => {
     setTab(next);
     history.replaceState(null, "", next === "send" ? "/" : "/" + next);
@@ -86,11 +71,11 @@ export function App() {
           <span>
             TRANSFER<span className="brand-dot">.</span>
           </span>
-          <span className="version">v.01</span>
+          <span className="version">v.02</span>
         </a>
         <div className="header-right">
           <span className="private-label">
-            <span aria-hidden="true">◆</span> PRIVATE WORKSPACE
+            <span aria-hidden="true">◆</span> FILE TRANSFER
           </span>
           <label className="theme-control">
             <span className="visually-hidden">ธีม</span>
@@ -104,85 +89,61 @@ export function App() {
               <option value="light">☀ Light</option>
             </select>
           </label>
-          {session && (
-            <button
-              className="logout"
-              onClick={() => void authClient!.auth.signOut()}
-            >
-              ออกจากระบบ
-            </button>
-          )}
         </div>
       </header>
       <main>
-        {loading ? (
-          <div className="loading" role="status">
-            กำลังเปิดพื้นที่ส่งไฟล์…
+        {managementError && (
+          <p className="error" role="alert">
+            {managementError}
+          </p>
+        )}
+        <div className="workspace-heading">
+          <div>
+            <p className="eyebrow">SEND. SHARE. CONTINUE.</p>
+            <h1>
+              ย้ายไฟล์ ให้งานเดินต่อ<span className="brand-dot">_</span>
+            </h1>
           </div>
-        ) : !session ? (
-          <Login />
+          <span className="account-name">เปิดเว็บ แล้วส่งได้เลย</span>
+        </div>
+        <div className="workspace-toolbar">
+          <nav aria-label="เมนูหลัก">
+            {(["send", "receive", "files"] as const).map((value, i) => (
+              <button
+                key={value}
+                aria-current={tab === value ? "page" : undefined}
+                className={tab === value ? "active" : ""}
+                onClick={() => navigate(value)}
+              >
+                <span className="nav-index">0{i + 1}</span>{" "}
+                {value === "send"
+                  ? "ส่งไฟล์"
+                  : value === "receive"
+                    ? "รับไฟล์"
+                    : "ไฟล์บนเครื่องนี้"}
+              </button>
+            ))}
+          </nav>
+          <span className="storage-summary">
+            <span className="status-dot" />
+            สูงสุด 1 GiB / ไฟล์
+          </span>
+        </div>
+        {managementPending ? (
+          <p role="status">กำลังตรวจลิงก์จัดการ…</p>
+        ) : tab === "send" ? (
+          <Send onChanged={() => {}} />
+        ) : tab === "receive" ? (
+          <Receive initialCode={initialCode} />
         ) : (
-          <>
-            <div className="workspace-heading">
-              <div>
-                <p className="eyebrow">YOUR PRIVATE WORKSPACE</p>
-                <h1>
-                  ย้ายไฟล์ ให้งานเดินต่อ<span className="brand-dot">_</span>
-                </h1>
-              </div>
-              <span className="account-name">{session.user.email}</span>
-            </div>
-            <div className="workspace-toolbar">
-              <nav aria-label="เมนูหลัก">
-                {(["send", "receive", "files"] as const).map((value, i) => (
-                  <button
-                    key={value}
-                    aria-current={tab === value ? "page" : undefined}
-                    className={tab === value ? "active" : ""}
-                    onClick={() => navigate(value)}
-                  >
-                    <span className="nav-index">0{i + 1}</span>{" "}
-                    {value === "send"
-                      ? "ส่งไฟล์"
-                      : value === "receive"
-                        ? "รับไฟล์"
-                        : "ไฟล์ของฉัน"}
-                  </button>
-                ))}
-              </nav>
-              {budget && (
-                <div className="storage-summary">
-                  <span className="status-dot" />
-                  <span>
-                    {bytes(budget.stored_bytes + budget.reserved_bytes)} /{" "}
-                    {bytes(budget.limit_bytes)}
-                  </span>
-                  <span className="dim">ใช้งานอยู่</span>
-                </div>
-              )}
-            </div>
-            {memberError ? (
-              <section className="panel panel-body">
-                <p role="alert" className="error">
-                  {memberError}
-                </p>
-                <button onClick={refresh}>ลองเชื่อมต่อใหม่</button>
-              </section>
-            ) : tab === "send" ? (
-              <Send onChanged={refresh} />
-            ) : tab === "receive" ? (
-              <Receive initialCode={initialCode} />
-            ) : (
-              <MyFiles onChanged={refresh} />
-            )}
-          </>
+          <MyFiles onChanged={() => {}} />
         )}
       </main>
       <footer>
         <span>
           <span className="status-dot" /> FILES MOVE. WORK CONTINUES.
         </span>
-        <span>ส่งอย่างเรียบง่าย · รับอย่างเป็นส่วนตัว</span>
+        <span>ส่งอย่างเรียบง่าย · ไม่ต้องสมัครสมาชิก</span>
       </footer>
     </div>
   );

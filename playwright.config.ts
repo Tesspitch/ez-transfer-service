@@ -17,8 +17,6 @@ export default defineConfig({
     stdout: "pipe",
     env: {
       NO_PROXY: "127.0.0.1,localhost",
-      VITE_SUPABASE_URL: "https://auth.example.test",
-      VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
     },
   },
   reporter: "list",

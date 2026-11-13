@@ -1,4 +1,4 @@
-import { authClient } from "./auth";
+import { ownerToken } from "./local-transfers";
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -7,6 +7,11 @@ export class ApiError extends Error {
   ) {
     super(message);
   }
+}
+export function ownerHeaders(path: string): Record<string, string> {
+  const id = path.match(/\/transfers\/([0-9a-f-]{36})(?:\/|$)/i)?.[1];
+  const token = id ? ownerToken(id) : undefined;
+  return token ? { "X-Transfer-Owner-Token": token } : {};
 }
 export async function api<T>(
   path: string,
@@ -17,32 +22,18 @@ export async function api<T>(
     headers?: Record<string, string>;
   } = {},
 ): Promise<T> {
-  const client = authClient;
-  if (!client) throw new ApiError("CONFIG", "ระบบยังไม่พร้อม กรุณาติดต่อผู้ดูแล", 503);
-  const { data } = await client.auth.getSession();
-  let token = data.session?.access_token;
-  const run = () =>
-    fetch("/api" + path, {
-      method: options.method ?? "GET",
-      signal: options.signal,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        ...(options.body === undefined
-          ? {}
-          : { "Content-Type": "application/json" }),
-        ...options.headers,
-      },
-      body:
-        options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
-  let response = await run();
-  if (response.status === 401) {
-    const { data: renewed, error } = await client.auth.refreshSession();
-    if (!error && renewed.session) {
-      token = renewed.session.access_token;
-      response = await run();
-    }
-  }
+  const response = await fetch("/api" + path, {
+    method: options.method ?? "GET",
+    signal: options.signal,
+    headers: {
+      ...ownerHeaders(path),
+      ...(options.body === undefined
+        ? {}
+        : { "Content-Type": "application/json" }),
+      ...options.headers,
+    },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  });
   if (response.status === 204) return undefined as T;
   const result = await response.json().catch(() => ({
     error: { code: "NETWORK", message: "เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่" },
@@ -61,22 +52,14 @@ export async function putPart(
   mode: "proxy" | "direct",
   signal: AbortSignal,
 ): Promise<void> {
-  const headers: Record<string, string> = {};
-  if (mode === "proxy") {
-    const { data } = await authClient!.auth.getSession();
-    headers.Authorization = `Bearer ${data.session?.access_token}`;
-  }
   const response = await fetch(url, {
     method: "PUT",
-    headers,
+    headers: mode === "proxy" ? ownerHeaders(url) : {},
     body: blob,
     signal,
   });
-  if (!response.ok) {
-    if (response.status === 401 && mode === "proxy")
-      await authClient!.auth.refreshSession();
+  if (!response.ok)
     throw new ApiError("UPLOAD", "ส่งไฟล์บางส่วนไม่สำเร็จ", response.status);
-  }
 }
 export const message = (e: unknown) =>
   e instanceof Error ? e.message : "เกิดข้อผิดพลาด กรุณาลองใหม่";

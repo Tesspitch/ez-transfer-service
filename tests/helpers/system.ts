@@ -6,7 +6,7 @@ import { domainError } from "../../src/worker/errors";
 import type { Env } from "../../src/worker/env";
 export const owner = "11111111-1111-4111-8111-111111111111";
 export const receiver = "22222222-2222-4222-8222-222222222222";
-export async function system() {
+export async function system(anonymous = false) {
   const db = new PGlite();
   await db.exec(
     `create role anon;create role authenticated;create role service_role;create schema auth;create table auth.users(id uuid primary key);insert into auth.users values('${owner}'),('${receiver}');`,
@@ -17,11 +17,18 @@ export async function system() {
   await db.exec(
     `insert into tt.members(user_id) values('${owner}'),('${receiver}');`,
   );
+  if (anonymous)
+    await db.exec(
+      readFileSync(
+        "supabase/migrations/202611130002_anonymous_sharing.sql",
+        "utf8",
+      ),
+    );
   const repo: Repository = {
     async call<T>(action: string, p: Record<string, unknown> = {}) {
       try {
         const r = await db.query<{ v: T }>(
-          "select public.transfer_rpc($1,$2::jsonb) v",
+          `select public.${anonymous ? "transfer_rpc_v2" : "transfer_rpc"}($1,$2::jsonb) v`,
           [action, JSON.stringify(p)],
         );
         return r.rows[0].v;
@@ -96,6 +103,7 @@ export async function system() {
     },
   };
   const env: Env = {
+    RATE_KEY_SECRET: "local-test-rate-key",
     SUPABASE_URL: "https://example.supabase.co",
     SUPABASE_SERVICE_ROLE_KEY: "",
     R2_ACCOUNT_ID: "",

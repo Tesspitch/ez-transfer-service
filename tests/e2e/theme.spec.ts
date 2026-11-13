@@ -1,12 +1,22 @@
 import { test, expect } from "@playwright/test";
-test("follows system, persists explicit choice, and fits mobile", async ({
+test("opens directly to send with no login and follows persistent themes", async ({
   page,
 }) => {
+  const authRequests: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/auth/v1")) authRequests.push(r.url());
+  });
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(
+    page.getByRole("heading", { name: "ส่งไฟล์ไปอีกเครื่อง" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("อีเมล")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "เข้าสู่ระบบ" })).toHaveCount(0);
+  await expect(
+    page.getByRole("radio", { name: "ผู้รับเดียว", exact: false }),
+  ).toBeChecked();
   await page.getByRole("combobox", { name: "ธีม" }).selectOption("light");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.setViewportSize({ width: 375, height: 812 });
@@ -17,16 +27,5 @@ test("follows system, persists explicit choice, and fits mobile", async ({
   ).toBe(true);
   await page.getByRole("combobox", { name: "ธีม" }).selectOption("system");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-});
-test("renders accessible login and blocks invalid form submission", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "เข้าสู่พื้นที่ส่งไฟล์" }),
-  ).toBeVisible();
-  await expect(page.getByLabel("อีเมล")).toBeVisible();
-  await expect(page.getByLabel("รหัสผ่าน", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }).click();
-  await expect(page.getByLabel("อีเมล")).toBeFocused();
+  expect(authRequests).toEqual([]);
 });
