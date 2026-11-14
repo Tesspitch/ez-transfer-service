@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { ZipReader, Uint8ArrayReader, TextWriter } from "@zip.js/zip.js";
 const id = "33333333-3333-4333-8333-333333333333";
 const code = "0123456789ABCDEFGHJKMNPQRST";
 async function mock(page: Page, mode: "single" | "multiple" = "single") {
@@ -132,6 +133,12 @@ test("sends without login and separates receiving and management links", async (
   await expect(page.getByLabel("ลิงก์จัดการไฟล์")).toHaveValue(
     /\/manage#id=.*&owner=/,
   );
+  await expect(page.getByLabel("ลิงก์รับไฟล์", { exact: true })).toHaveValue(
+    `http://127.0.0.1:5199/receive#code=${code}`,
+  );
+  await expect(
+    page.getByRole("link", { name: "เปิดลิงก์รับไฟล์", exact: true }),
+  ).toHaveAttribute("href", `/receive#code=${code}`);
   await page.getByRole("button", { name: "ไฟล์บนเครื่องนี้", exact: false }).click();
   await expect(page.getByRole("heading", { name: "เอกสาร.txt" })).toBeVisible();
 });
@@ -141,7 +148,9 @@ test("single receiver survives reload and failed signing without losing claim", 
   await mock(page);
   await page.goto("/receive#code=" + code);
   expect(new URL(page.url()).hash).toBe("");
-  await page.getByRole("button", { name: "ค้นหาไฟล์" }).click();
+  await expect(
+    page.getByRole("heading", { name: "เอกสาร.txt", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "รับสิทธิ์และดาวน์โหลด" }).click();
   await expect(
     page.getByText("ได้รับสิทธิ์แล้ว แต่เริ่มดาวน์โหลดไม่สำเร็จ ลองอีกครั้งได้"),
@@ -151,6 +160,185 @@ test("single receiver survives reload and failed signing without losing claim", 
   await expect(
     page.getByRole("button", { name: "ดาวน์โหลดอีกครั้ง" }),
   ).toBeVisible();
+});
+
+test("receive link automatically finds files without claiming or starting downloads", async ({
+  page,
+}) => {
+  await mock(page, "multiple");
+  const actions: string[] = [];
+  page.on("request", (request) => {
+    if (/\/(claim|download)$/.test(new URL(request.url()).pathname))
+      actions.push(request.url());
+  });
+  await page.goto("/receive#code=" + code);
+  await expect(
+    page.getByRole("heading", { name: "เอกสาร.txt", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "ดาวน์โหลดไฟล์", exact: false }),
+  ).toBeVisible();
+  expect(actions).toEqual([]);
+  expect(new URL(page.url()).hash).toBe("");
+});
+
+test("invalid receive links show an error and allow entering another code", async ({
+  page,
+}) => {
+  await page.route("**/api/**", (route) =>
+    route.fulfill({
+      status: 404,
+      json: { error: { code: "NOT_FOUND", message: "ไม่พบไฟล์หรือรหัสหมดอายุ" } },
+    }),
+  );
+  await page.goto("/receive#code=" + code);
+  await expect(page.getByRole("alert")).toHaveText("ไม่พบไฟล์หรือรหัสหมดอายุ");
+  await page.getByLabel("รหัสรับไฟล์", { exact: true }).fill("OTHER");
+  await expect(
+    page.getByRole("button", { name: "ค้นหาไฟล์", exact: false }),
+  ).toBeEnabled();
+});
+
+test("appends files and uploads only checked files in one ZIP", async ({
+  page,
+}) => {
+  await mock(page);
+  let archive: Buffer | null = null;
+  await page.route("**/api/transfers/*/part/1", async (route) => {
+    archive = route.request().postDataBuffer();
+    await route.fulfill({ status: 204 });
+  });
+  await page.goto("/");
+  const picker = page.getByLabel("เลือกไฟล์", { exact: true });
+  await picker.setInputFiles([
+    { name: "ไทย.txt", mimeType: "text/plain", buffer: Buffer.from("first") },
+    {
+      name: "exclude.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("private"),
+    },
+  ]);
+  await page
+    .getByRole("checkbox", { name: "ส่งไฟล์ exclude.txt", exact: true })
+    .uncheck();
+  await picker.setInputFiles({
+    name: "second.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("second"),
+  });
+  await expect(page.getByRole("checkbox")).toHaveCount(3);
+  await expect(
+    page.getByRole("checkbox", { name: "ส่งไฟล์ exclude.txt", exact: true }),
+  ).not.toBeChecked();
+  await page
+    .getByRole("button", { name: "เอาเครื่องหมายออกทั้งหมด", exact: true })
+    .click();
+  await expect(page.getByRole("button", { name: "อัปโหลดไฟล์" })).toBeDisabled();
+  await page.getByRole("button", { name: "เลือกทั้งหมด", exact: true }).click();
+  await page
+    .getByRole("checkbox", { name: "ส่งไฟล์ exclude.txt", exact: true })
+    .uncheck();
+  await page.getByRole("button", { name: "อัปโหลดไฟล์" }).click();
+  await expect(page.getByText("อัปโหลดสำเร็จ พร้อมรับไฟล์จากอีกเครื่อง")).toBeVisible();
+  expect(archive).not.toBeNull();
+  const reader = new ZipReader(new Uint8ArrayReader(new Uint8Array(archive!)), {
+    useWebWorkers: false,
+  });
+  try {
+    const entries = await reader.getEntries();
+    expect(entries.map((entry) => entry.filename)).toEqual([
+      "ไทย.txt",
+      "second.txt",
+    ]);
+    expect(
+      await Promise.all(
+        entries.map((entry) =>
+          entry.directory
+            ? ""
+            : entry.getData(new TextWriter(), { useWebWorkers: false }),
+        ),
+      ),
+    ).toEqual(["first", "second"]);
+  } finally {
+    await reader.close();
+  }
+});
+
+test("removes queue entries and fits long filenames on mobile in both themes", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.setViewportSize({ width: 375, height: 812 });
+  const name = "long-".repeat(35) + ".txt";
+  await page.getByLabel("เลือกไฟล์", { exact: true }).setInputFiles([
+    { name, mimeType: "text/plain", buffer: Buffer.from("a") },
+    { name: "remove.txt", mimeType: "text/plain", buffer: Buffer.from("b") },
+    { name: "unchecked.txt", mimeType: "text/plain", buffer: Buffer.from("c") },
+  ]);
+  await page
+    .getByRole("button", { name: "เอา remove.txt ออก", exact: true })
+    .click();
+  await page
+    .getByRole("checkbox", { name: "ส่งไฟล์ unchecked.txt", exact: true })
+    .uncheck();
+  await page
+    .getByRole("button", { name: "ลบไฟล์ที่ไม่ได้เลือก", exact: true })
+    .click();
+  await expect(page.getByRole("checkbox")).toHaveCount(1);
+  for (const theme of ["dark", "light"]) {
+    await page.getByRole("combobox", { name: "ธีม" }).selectOption(theme);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: `test-results/multi-file-${theme}-mobile.png`,
+      fullPage: true,
+    });
+  }
+  await page.getByRole("button", { name: "ล้าง", exact: true }).click();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+});
+
+test("appends multiple dropped and pasted files without clearing valid choices", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const zone = page.locator(".drop-zone");
+  const dropped = await page.evaluateHandle(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(["a"], "drop-a.txt"));
+    data.items.add(new File(["b"], "drop-b.txt"));
+    return data;
+  });
+  await zone.dispatchEvent("drop", { dataTransfer: dropped });
+  await page
+    .getByRole("checkbox", { name: "ส่งไฟล์ drop-a.txt", exact: true })
+    .uncheck();
+  const pasted = await page.evaluateHandle(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(["c"], "paste-c.txt"));
+    data.items.add(new File(["d"], "paste-d.txt"));
+    data.items.add(new File([], "empty.txt"));
+    return data;
+  });
+  await page.locator(".panel-body").evaluate((element, data) => {
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: data,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  }, pasted);
+  await expect(page.getByRole("checkbox")).toHaveCount(4);
+  await expect(
+    page.getByRole("checkbox", { name: "ส่งไฟล์ drop-a.txt", exact: true }),
+  ).not.toBeChecked();
+  await expect(page.getByRole("alert")).toContainText("empty.txt");
+  await dropped.dispose();
+  await pasted.dispose();
 });
 test("terminal screenshots show both modes and no horizontal mobile overflow", async ({
   page,

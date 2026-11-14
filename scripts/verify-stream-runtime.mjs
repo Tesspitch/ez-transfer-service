@@ -1,11 +1,11 @@
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import workerd from "workerd";
-import { build } from "esbuild";
+import { buildWorker } from "./worker-build.mjs";
 process.env.MINIFLARE_WORKERD_PATH =
   typeof workerd === "string" ? workerd : workerd.default;
 const source = `import {createStorage} from './src/worker/storage/r2.ts';
 export default {async fetch(request){const storage=createStorage({R2_ACCOUNT_ID:'test',R2_BUCKET:'test',R2_ACCESS_KEY_ID:'key',R2_SECRET_ACCESS_KEY:'secret'});try{await storage.putPart('file','upload',1,request.body,3);return new Response('ok');}catch{return new Response('rejected',{status:400});}}};`;
-const compiled = await build({
+const compiled = await buildWorker({
   stdin: { contents: source, resolveDir: process.cwd() },
   bundle: true,
   write: false,

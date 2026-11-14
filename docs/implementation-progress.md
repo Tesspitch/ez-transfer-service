@@ -53,3 +53,27 @@ Fresh reviewer findings fixed with observed RED->GREEN: invalid management links
 Evidence: npm test31/31 PASS; Chrome5/5 PASS including no login, sharing mode, reload claim, management link safety and dark/light/mobile screenshots; typecheck/lint/build/workerd runtime/cf prebuilt dry-run PASS. No deployment. Live RPC check returnsPGRST202 for transfer_rpc_v2: migration0002not yet applied. CUA database editor access stopped because the tool could not confidently verify the current browser URL; no database UI changes were performed and no alternate UI mechanism was used.
 
 Next operator step: run supabase/migrations/202611130002_anonymous_sharing.sql once in SupabaseSQL Editor (0001alreadyapplied), then restart Worker and hard-refresh frontend. Full1GiBstagingremainsunverified. SQL0002wasverifiedonlocalPostgreSQLbutnotremoteSupabase.
+
+## Multi-file selection — 2026-11-14
+
+Implemented picker/drop/paste append queue, checkboxes, select/unselect all, remove unchecked/per-file and clear. One selected file stays original; multiple selected files become one uncompressed ZIP/ukid through existing multipart API. Queue limit100, artifact limit1GiB including ZIP overhead, zero-byte rejected without discarding valid files. Dynamic zip.js Blob writer, progress/cancel before network, path sanitization/duplicate names, deterministic selection metadata for pending-create retries. Changes to selection clear old result messages. Backend/schema/env unchanged.
+
+Evidence: full unit/database38/38 PASS; Chrome8/8 PASS, including decoding actual outgoing PUT payload to confirm only checked files and contents, dropped/pasted files preserving choices, removal/clear, and dark/light375px screenshots without overflow. Corrected browser test to dispatch native ClipboardEvent (generic synthetic Event omitted clipboardData); production paste handler unchanged. Typecheck/lint/build PASS; read-only reviewer reports no unresolved issues. Full1GiB on real devices/R2 remains unverified. No deployment or remote database change. See docs/handoffs/2026-11-14-multi-file-selection.md.
+
+## Receive links — 2026-11-14
+
+User requested a redirect link alongside the transfer code. Expose the existing same-origin `/receive#code=UKID` URL as a selectable field plus copy/open actions. Opening the URL navigates to Receive and automatically resolves file details; explicit download/claim remains required. Code stays in fragment, is consumed by existing App bootstrap and removed from address bar. Invalid/expired links show the existing API error and keep manual lookup available. No backend/schema/deploy change. Regression tests observed failing before implementation; Chrome10/10 PASS plus typecheck/lint/build PASS afterward, including link field/href, automatic lookup without claim/download, invalid link recovery and single-recipient reload recovery.
+
+## Header/theme UI — 2026-11-14
+
+Set explicit theme dropdown/option foreground and background using theme tokens; enlarge control to42px and preserve native keyboard interaction/focus. Header with logo/theme is sticky at top0 with opaque theme background and z-index100. Chrome10/10 PASS; lint/build PASS. Additional browser inspection at1440px and375px in both themes confirms header top remains0 after scrolling498–500px, no horizontal overflow, and option colors follow active theme. Screenshots test-results/sticky-header-{1440,375}-{dark,light}.png. CSS-only; no deployment.
+
+## Production 503 incident — 2026-11-14
+
+User reported create-transfer503 at terminal-transfer.testo3663.workers.dev. Read-only provider checks confirmed Supabase transfer_rpc_v2 budget/reserve and local R2 access work; migration0002 is now present remotely. Deployed Worker had placeholder SUPABASE_URL/R2_ACCOUNT_ID and example bucket. Patched these three plain-text bindings to configured local values through Cloudflare API, inheriting all other bindings. Generic API then returned expected404, but actual creation still503.
+
+Cloudflare observability logs identified `ReferenceError: DOMParser is not defined`. Root cause: browser esbuild resolution selected AWS XML builder browser parser, which needs DOM APIs absent from Workers. Added scripts/worker-build.mjs to retain browser Fetch transport while resolving SDK's own DOM-free XML parser. Packager and runtime checks share the helper. Packager also reads local .env with existing process/CI env taking precedence, preventing ordinary local builds from silently ignoring configured values.
+
+Regression: mocked real S3 InitiateMultipartUpload XML in workerd failed with DOMParser before fix and passed after. Added verify-r2-runtime.mjs to npm run test:runtime. Lint,38 unit/database tests, build and full runtime suite PASS. Build output no longer contains DOMParser.
+
+Applied only fixed Worker code through Cloudflare API to existing terminal-transfer, preserving existing assets/config and inheriting secrets/bindings. Pre-code-change version76e77b3b-999c-4dc1-845b-01048b8dd863 retained as rollback reference. Worker upload deployment_id4d394e27d229415e9cafa190fb09ddeb. Public production smoke PASS: create201, signed/proxy parts200/204, complete200, resolve200, download200 with exact34-byte content. Test deletion202 requested; physical cleanup remains asynchronous after issued download URLs expire. One1-byte database-only diagnostic reservation was compensated and queued for cleanup; ambiguous reservation grace applies. No secrets or signed links printed. Changes must be committed/pushed so later CI deployments retain this fix.

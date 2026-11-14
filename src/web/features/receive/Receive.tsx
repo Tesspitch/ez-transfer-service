@@ -53,7 +53,8 @@ export function Receive({ initialCode }: { initialCode: string }) {
     }
   }
   useEffect(() => {
-    if (restored.current) void lookup(restored.current.canonicalCode);
+    const linkedCode = initialCode || restored.current?.canonicalCode;
+    if (linkedCode) void lookup(linkedCode);
   }, []);
   async function download() {
     if (!result) return;

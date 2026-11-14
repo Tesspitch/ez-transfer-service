@@ -64,12 +64,25 @@ export function App() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="TRANSFER หน้าแรก">
-          <span className="brand-mark" aria-hidden="true">
-            &gt;_
-          </span>
+        <a className="brand" href="/" aria-label="EZ-TRANSFER หน้าแรก">
+          <svg
+            className="brand-mark"
+            viewBox="0 0 48 48"
+            fill="none"
+            aria-hidden="true"
+          >
+            <g
+              stroke="currentColor"
+              strokeWidth="2.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M37 16 26 5H12a3 3 0 0 0-3 3v32a3 3 0 0 0 3 3h22a3 3 0 0 0 3-3v-5M26 5v11h11" />
+              <path d="M18 25h23m-7-7 7 7-7 7M17 34h7" />
+            </g>
+          </svg>
           <span>
-            TRANSFER<span className="brand-dot">.</span>
+            EZ-TRANSFER<span className="brand-dot">.</span>
           </span>
           <span className="version">v.02</span>
         </a>

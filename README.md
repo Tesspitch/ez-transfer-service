@@ -226,15 +226,52 @@ CLI จะแสดง URL ที่เปิดใช้งานได้ ห�
 
 ### Git และการอัปเดต
 
-Push source code, migrations, scripts, assets และ `package-lock.json` เข้า **repo เดียว** ได้ ใช้ `.gitignore` เดิมเพื่อไม่ส่ง secrets, dependencies และ build output การ push อย่างเดียวยังไม่ deploy อัตโนมัติ ต้องตั้ง CI/CD เพิ่ม
+Push source code, migrations, scripts, assets และ `package-lock.json` เข้า **repo เดียว** ได้ ใช้ `.gitignore` เดิมเพื่อไม่ส่ง secrets, dependencies และ build output
 
-เมื่อแก้ระบบแล้ว ให้ build, dry-run และ deploy ตามขั้นตอนเดิม สามารถตั้ง GitHub Actions ภายหลัง โดยเก็บ credentials ใน GitHub Secrets แทนการ commit `.env`
+เมื่อ deploy จากเครื่อง ให้ build, dry-run และ deploy ตามขั้นตอนเดิม หรือใช้ GitHub Actions ตามขั้นตอนถัดไป
+
+### CI/CD ด้วย GitHub Actions
+
+ไฟล์ [ci.yml](.github/workflows/ci.yml) มีสอง job:
+
+- `local`: ทุก push และ pull request จะตรวจ typecheck/lint, unit/database tests, build, runtime และ browser tests โดยไม่ใช้ production secrets
+- `deploy`: ทำงานหลัง `local` ผ่าน เฉพาะ push เข้า `main` แล้ว build ด้วย config production, dry-run และ deploy Worker พร้อม static assets ไม่ deploy จาก pull request หรือ branch อื่น
+
+ตั้งค่าครั้งแรกก่อน push workflow ใหม่นี้เข้า `main`:
+
+1. ตรวจว่า Supabase migrations และ R2 private bucket พร้อมแล้ว การ deploy ไม่ได้รัน migration ให้อัตโนมัติ
+2. ใน Cloudflare เปิด **My Profile → API Tokens → Create Token** ใช้ template **Edit Cloudflare Workers** และเลือกบัญชีที่จะ deploy token นี้เป็นสิทธิ์ deploy ของ CI ไม่ใช่ R2 access key
+3. เปิด GitHub repository → **Settings → Secrets and variables → Actions → Secrets → New repository secret** เพิ่มค่าต่อไปนี้
+
+| Repository secret | ค่า |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | API token สำหรับ deploy Worker จากขั้นตอนก่อนหน้า |
+| `CLOUDFLARE_ACCOUNT_ID` | Account ID ที่ deploy Worker และมี R2 ของระบบ |
+| `WORKER_SECRETS_JSON` | คัดลอกเนื้อหา JSON ทั้งไฟล์ `.env.worker-secrets.json` จากขั้นเตรียม secrets รวมวงเล็บปีกกา ไม่ใช่ชื่อไฟล์ |
+
+4. ในหน้าเดียวกัน เลือก **Variables → New repository variable** เพิ่ม config ต่อไปนี้
+
+| Repository variable | ค่า |
+| --- | --- |
+| `SUPABASE_URL` | URL ของ Supabase project จริง |
+| `R2_BUCKET` | ชื่อ private R2 bucket จริง |
+| `SHARE_CODE_ACTIVE_KEY` | `v1` หรือรุ่น key ปัจจุบัน ถ้าไม่ตั้งจะใช้ `v1` |
+
+`APP_ORIGIN=auto` และ `TRANSFER_MODE=production` ตั้งไว้ใน workflow แล้ว ส่วน `R2_ACCOUNT_ID` ใช้ account ID เดียวกับ `CLOUDFLARE_ACCOUNT_ID` หากระบบใช้ R2 คนละบัญชีกับ Worker ต้องปรับ env ใน workflow ให้ตรงก่อน deploy
+
+5. Commit และ push การเปลี่ยนแปลงที่ต้องการขึ้นระบบพร้อม `.github/workflows/ci.yml` เข้า `main`
+6. เปิดแท็บ **Actions → verify** ใน GitHub ตรวจว่า `local` และ `Deploy production` ผ่าน แล้วเปิด URL จาก log ขั้น deploy เพื่อทดสอบส่ง/รับไฟล์จริง
+
+หลังตั้งค่าแล้ว flow คือ `push main → ตรวจโค้ดและทดสอบ → build production → deploy` หาก CI ไม่ผ่านจะไม่ deploy และตรวจ commit ล่าสุดของ `main` ก่อน deploy เพื่อข้าม run เก่าที่ทดสอบเสร็จช้ากว่า โดยไม่ต้องล็อกอิน Cloudflare จากเครื่องนักพัฒนาทุกครั้ง การ deploy ครั้งแรกทำผ่าน CI ได้เช่นกันเมื่อทรัพยากรและค่าทั้งหมดพร้อม ไม่ต้องเชื่อม Cloudflare Pages หรือ Workers Builds ซ้ำอีกชุด
+
+Worker secrets ถูกเขียนเป็นไฟล์ชั่วคราวเฉพาะขั้น deploy และลบเมื่อ job จบ ไม่อัปโหลดเป็น artifact หากเปลี่ยน backend secrets หรือ keyring ให้ปรับ `WORKER_SECRETS_JSON` ใน GitHub ให้ตรงด้วย ยังต้องตรวจ live integration ตาม acceptance แยกจาก CI ที่ใช้ local/mock tests
 
 ## ตรวจสอบและแก้ปัญหา
 
 | อาการ | ตรวจอะไร |
 | --- | --- |
 | หน้าเว็บเปิดได้ แต่ส่ง/รับไม่ได้ | เปิด Worker แล้วหรือยัง, env ถูกต้องหรือไม่ และใช้ migration 0002 แล้วหรือยัง |
+| Production ตอบ 503 ตอนเริ่มส่ง | ตรวจ Worker Variables ว่า `SUPABASE_URL`, `R2_ACCOUNT_ID`, `R2_BUCKET` เป็นค่าจริง ไม่ใช่ placeholder; ถ้า log มี `DOMParser is not defined` ต้องใช้ build script รุ่นแก้ XML parser สำหรับ Workers |
 | Origin ถูกปฏิเสธขณะรัน local | `APP_ORIGIN` ต้องตรง scheme/host/port ของหน้าเว็บ แล้วรีสตาร์ต Worker |
 | ไม่พบ `transfer_rpc_v2` | ตรวจ migration 0002 ใน Supabase project ที่ env ชี้อยู่ |
 | ไม่พบไฟล์หรือรหัสหมดอายุ | ตรวจรหัส ลิงก์ อายุไฟล์ และว่าเจ้าของลบแล้วหรือไม่ |

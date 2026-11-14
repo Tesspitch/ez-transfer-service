@@ -2,7 +2,7 @@ import { defineConfig, bindings, triggers } from "cf/config";
 export default defineConfig(({ mode }) => ({
   worker: {
     name:
-      mode === "staging" ? "terminal-transfer-staging" : "terminal-transfer",
+      mode === "staging" ? "terminal-transfer-staging" : "ez-transfer",
     entrypoint: "./src/worker/index.ts",
     compatibilityDate: "2026-11-13",
     compatibilityFlags: ["nodejs_compat"],

@@ -20,12 +20,13 @@
     "deploy": "npm run build && cf deploy --prebuilt --mode production",
     "format": "prettier --write src tests scripts *.ts *.js public/theme-init.js index.html",
     "dev:worker": "node scripts/dev-worker.mjs",
-    "test:runtime": "node scripts/verify-runtime.mjs && node scripts/verify-stream-runtime.mjs"
+    "test:runtime": "node scripts/verify-runtime.mjs && node scripts/verify-stream-runtime.mjs && node scripts/verify-r2-runtime.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.900.0",
     "@aws-sdk/s3-request-presigner": "^3.900.0",
     "@supabase/supabase-js": "^2.80.0",
+    "@zip.js/zip.js": "^2.25.0",
     "hono": "^4.10.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

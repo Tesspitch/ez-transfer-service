@@ -7,6 +7,13 @@ import {
   type ShareMode,
 } from "../../../shared/contracts";
 import { uploadFile } from "./multipart-client";
+import {
+  addFiles,
+  selectedFiles,
+  toggleFile,
+  type SelectedFile,
+} from "./selection";
+import { prepareBundle } from "./bundle";
 import { bytes, date, copy, grouped, retentionLabels } from "../../lib/format";
 import { message } from "../../lib/api";
 import {
@@ -14,7 +21,11 @@ import {
   persistentStorageAvailable,
 } from "../../lib/local-transfers";
 export function Send({ onChanged }: { onChanged: () => void }) {
-  const [file, setFile] = useState<File | null>(null);
+  const [items, setItems] = useState<SelectedFile[]>([]);
+  const files = selectedFiles(items);
+  const total = files.reduce((sum, file) => sum + file.size, 0);
+  const [progressTotal, setProgressTotal] = useState(1);
+  const [preparing, setPreparing] = useState(false);
   const [retention, setRetention] = useState<Retention>("24h");
   const [shareMode, setShareMode] = useState<ShareMode>("single");
   const [busy, setBusy] = useState(false);
@@ -22,21 +33,25 @@ export function Send({ onChanged }: { onChanged: () => void }) {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [ready, setReady] = useState<ReadyView | null>(null);
+  const receivePath = ready
+    ? `/receive#code=${encodeURIComponent(ready.code)}`
+    : "";
+  const receiveLink = ready ? `${location.origin}${receivePath}` : "";
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const abort = useRef<AbortController | null>(null);
-  function choose(f: File | undefined) {
-    if (!f || busy) return;
+  function updateItems(next: SelectedFile[]) {
+    setItems(next);
     setReady(null);
-    setError("");
     setStatus("");
+    setError("");
     setSent(0);
-    if (!f.size || f.size > MAX_FILE_BYTES) {
-      setFile(null);
-      setError("เลือกไฟล์ที่มีขนาดมากกว่า 0 และไม่เกิน 1 GiB");
-      return;
-    }
-    setFile(f);
+  }
+  function choose(incoming: Iterable<File>) {
+    if (busy) return;
+    const result = addFiles(items, incoming);
+    updateItems(result.items);
+    setError(result.errors.join(" · "));
   }
   useEffect(() => () => abort.current?.abort(), []);
   return (
@@ -54,10 +69,9 @@ export function Send({ onChanged }: { onChanged: () => void }) {
         <div
           className="panel-body"
           onPaste={(e) => {
-            const f = e.clipboardData.files[0];
-            if (f) {
+            if (e.clipboardData.files.length) {
               e.preventDefault();
-              choose(f);
+              choose(e.clipboardData.files);
             }
           }}
         >
@@ -70,9 +84,13 @@ export function Send({ onChanged }: { onChanged: () => void }) {
             ref={input}
             className="visually-hidden"
             type="file"
+            multiple
             aria-label="เลือกไฟล์"
             disabled={busy}
-            onChange={(e) => choose(e.target.files?.[0])}
+            onChange={(e) => {
+              choose(e.target.files || []);
+              e.target.value = "";
+            }}
           />
           <button
             type="button"
@@ -87,18 +105,99 @@ export function Send({ onChanged }: { onChanged: () => void }) {
             onDrop={(e) => {
               e.preventDefault();
               setDrag(false);
-              choose(e.dataTransfer.files[0]);
+              choose(e.dataTransfer.files);
             }}
           >
             <span className="upload-symbol" aria-hidden="true">
               ↑
             </span>
-            <strong>{file ? file.name : "ลากไฟล์มาวางที่นี่"}</strong>
-            <span className="muted">
-              {file ? bytes(file.size) : "หรือคลิกเลือกไฟล์ · วางจากคลิปบอร์ดได้"}
-            </span>
-            <span className="tag">MAX 1 GiB / SINGLE FILE</span>
+            <strong>{items.length ? "เพิ่มไฟล์ในรายการ" : "ลากไฟล์มาวางที่นี่"}</strong>
+            <span className="muted">คลิกเลือกหลายไฟล์ · วางจากคลิปบอร์ดได้</span>
+            <span className="tag">MAX 1 GiB / 100 FILES</span>
           </button>
+          {items.length > 0 && (
+            <fieldset className="file-selection" disabled={busy}>
+              <legend>
+                เลือกไฟล์ที่จะส่ง ({files.length}/{items.length})
+              </legend>
+              <div className="actions file-tools">
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateItems(
+                      items.map((item) => ({ ...item, selected: true })),
+                    )
+                  }
+                >
+                  เลือกทั้งหมด
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateItems(
+                      items.map((item) => ({ ...item, selected: false })),
+                    )
+                  }
+                >
+                  เอาเครื่องหมายออกทั้งหมด
+                </button>
+                <button
+                  type="button"
+                  disabled={items.every((item) => item.selected)}
+                  onClick={() =>
+                    updateItems(items.filter((item) => item.selected))
+                  }
+                >
+                  ลบไฟล์ที่ไม่ได้เลือก
+                </button>
+              </div>
+              <ul className="file-list">
+                {items.map((item) => (
+                  <li key={item.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={item.selected}
+                        aria-label={`ส่งไฟล์ ${item.file.name}`}
+                        onChange={(e) =>
+                          updateItems(
+                            toggleFile(items, item.id, e.target.checked),
+                          )
+                        }
+                      />
+                      <span className="file-details">
+                        <strong>{item.file.name}</strong>
+                        <small>{bytes(item.file.size)}</small>
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      className="subtle"
+                      aria-label={`เอา ${item.file.name} ออก`}
+                      onClick={() =>
+                        updateItems(
+                          items.filter((entry) => entry.id !== item.id),
+                        )
+                      }
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="hint">
+                เลือก {files.length} ไฟล์ · {bytes(total)}
+                {files.length > 1
+                  ? " · รวมเป็น ZIP ใช้รหัสเดียว"
+                  : files.length === 1
+                    ? " · ส่งไฟล์ต้นฉบับ"
+                    : " · ติ๊กไฟล์ก่อนส่ง"}
+              </p>
+              {total > MAX_FILE_BYTES && (
+                <p className="error">ขนาดรวมเกิน 1 GiB กรุณาเอาบางไฟล์ออก</p>
+              )}
+            </fieldset>
+          )}
           <fieldset className="share-options" disabled={busy}>
             <legend>แชร์ไฟล์ให้</legend>
             <div className="share-cards">
@@ -157,21 +256,21 @@ export function Send({ onChanged }: { onChanged: () => void }) {
           {busy && (
             <div className="progress-section">
               <div className="progress-label">
-                <span>กำลังส่งไฟล์…</span>
-                <span>{Math.round((sent / (file?.size || 1)) * 100)}%</span>
+                <span>{preparing ? "กำลังเตรียม ZIP…" : "กำลังส่งไฟล์…"}</span>
+                <span>{Math.round((sent / progressTotal) * 100)}%</span>
               </div>
-              <progress max={file?.size || 1} value={sent} />
+              <progress max={progressTotal} value={sent} />
               <p className="hint">
-                {bytes(sent)} / {bytes(file?.size || 0)}
+                {bytes(sent)} / {bytes(progressTotal)}
               </p>
             </div>
           )}
           <div className="actions">
             <button
               className="primary"
-              disabled={!file || busy}
+              disabled={!files.length || total > MAX_FILE_BYTES || busy}
               onClick={async () => {
-                if (!file) return;
+                if (!files.length || total > MAX_FILE_BYTES) return;
                 setBusy(true);
                 setError("");
                 setStatus("");
@@ -179,6 +278,15 @@ export function Send({ onChanged }: { onChanged: () => void }) {
                 setSent(0);
                 abort.current = new AbortController();
                 try {
+                  setPreparing(files.length > 1);
+                  setProgressTotal(total || 1);
+                  const file = await prepareBundle(files, {
+                    signal: abort.current.signal,
+                    onProgress: setSent,
+                  });
+                  setPreparing(false);
+                  setSent(0);
+                  setProgressTotal(file.size);
                   setReady(
                     await uploadFile(file, retention, {
                       signal: abort.current.signal,
@@ -193,6 +301,7 @@ export function Send({ onChanged }: { onChanged: () => void }) {
                   );
                 } finally {
                   setBusy(false);
+                  setPreparing(false);
                   onChanged();
                 }
               }}
@@ -203,14 +312,11 @@ export function Send({ onChanged }: { onChanged: () => void }) {
             {busy && (
               <button onClick={() => abort.current?.abort()}>ยกเลิก</button>
             )}
-            {file && !busy && (
+            {items.length > 0 && !busy && (
               <button
                 className="subtle"
                 onClick={() => {
-                  setFile(null);
-                  setReady(null);
-                  setSent(0);
-                  setError("");
+                  updateItems([]);
                   if (input.current) input.current.value = "";
                 }}
               >
@@ -239,6 +345,15 @@ export function Send({ onChanged }: { onChanged: () => void }) {
                   onFocus={(e) => e.target.select()}
                 />
               </label>
+              <label className="receive-link-label">
+                ลิงก์รับไฟล์
+                <input
+                  value={receiveLink}
+                  readOnly
+                  onFocus={(e) => e.target.select()}
+                />
+              </label>
+              <p className="hint">ส่งลิงก์นี้ให้ผู้รับ เปิดแล้วค้นหาไฟล์ให้ทันที</p>
               <div className="actions">
                 <button
                   onClick={async () =>
@@ -254,16 +369,17 @@ export function Send({ onChanged }: { onChanged: () => void }) {
                 <button
                   onClick={async () =>
                     setStatus(
-                      (await copy(
-                        `${location.origin}/receive#code=${ready.code}`,
-                      ))
+                      (await copy(receiveLink))
                         ? "คัดลอกลิงก์แล้ว"
-                        : "คัดลอกอัตโนมัติไม่ได้ กรุณาคัดลอกรหัสแทน",
+                        : "เลือกลิงก์รับไฟล์ด้านบนเพื่อคัดลอกเองได้",
                     )
                   }
                 >
                   คัดลอกลิงก์
                 </button>
+                <a href={receivePath} target="_blank" rel="noreferrer">
+                  เปิดลิงก์รับไฟล์
+                </a>
               </div>
               <p className="hint">หมดอายุ: {date(ready.expiresAt)}</p>
               <p className="hint">

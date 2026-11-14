@@ -1,4 +1,5 @@
-import { build } from "esbuild";
+import { buildWorker } from "./worker-build.mjs";
+import { existsSync } from "node:fs";
 import { loadAndParseConfig } from "@cloudflare/config";
 import {
   cleanBuildOutputDir,
@@ -10,6 +11,8 @@ import {
 } from "@cloudflare/build-output-utils";
 import path from "node:path";
 const root = process.cwd();
+// Shell/CI variables take precedence; local deployments also read .env.
+if (existsSync(".env")) process.loadEnvFile(".env");
 const mode = process.env.TRANSFER_MODE ?? "production";
 const context = { isPreview: false, mode };
 const { result } = await loadAndParseConfig(
@@ -24,7 +27,7 @@ if (
 )
   throw new Error("UNSAFE_OUTPUT_PATH");
 await cleanBuildOutputDir(root);
-await build({
+await buildWorker({
   entryPoints: ["src/worker/index.ts"],
   bundle: true,
   format: "esm",
