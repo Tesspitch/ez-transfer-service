@@ -121,14 +121,13 @@ export function App() {
         </div>
         <div className="workspace-toolbar">
           <nav aria-label="เมนูหลัก">
-            {(["send", "receive", "files"] as const).map((value, i) => (
+            {(["send", "receive", "files"] as const).map((value) => (
               <button
                 key={value}
                 aria-current={tab === value ? "page" : undefined}
                 className={tab === value ? "active" : ""}
                 onClick={() => navigate(value)}
               >
-                <span className="nav-index">0{i + 1}</span>{" "}
                 {value === "send"
                   ? "ส่งไฟล์"
                   : value === "receive"

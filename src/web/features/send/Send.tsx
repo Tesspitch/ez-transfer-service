@@ -40,6 +40,7 @@ export function Send({ onChanged }: { onChanged: () => void }) {
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const abort = useRef<AbortController | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
   function updateItems(next: SelectedFile[]) {
     setItems(next);
     setReady(null);
@@ -54,8 +55,17 @@ export function Send({ onChanged }: { onChanged: () => void }) {
     setError(result.errors.join(" · "));
   }
   useEffect(() => () => abort.current?.abort(), []);
+  useEffect(() => {
+    if (ready)
+      resultRef.current?.scrollIntoView({
+        block: "nearest",
+        behavior: "instant",
+      });
+  }, [ready]);
   return (
-    <div className="workspace-grid">
+    <div
+      className={`workspace-grid send-workspace ${items.length ? "has-files" : "is-empty"} ${ready ? "is-ready" : ""}`}
+    >
       <section className="panel">
         <div className="panel-top">
           <span className="window-dots" aria-hidden="true">
@@ -64,7 +74,7 @@ export function Send({ onChanged }: { onChanged: () => void }) {
             <i />
           </span>
           <span>send_file</span>
-          <span className="dim">01 / upload</span>
+          <span className="dim">/ upload</span>
         </div>
         <div
           className="panel-body"
@@ -111,7 +121,7 @@ export function Send({ onChanged }: { onChanged: () => void }) {
             <span className="upload-symbol" aria-hidden="true">
               ↑
             </span>
-            <strong>{items.length ? "เพิ่มไฟล์ในรายการ" : "ลากไฟล์มาวางที่นี่"}</strong>
+            <strong>{items.length ? "เพิ่มไฟล์ในรายการ" : "เลือกไฟล์ที่จะส่ง"}</strong>
             <span className="muted">คลิกเลือกหลายไฟล์ · วางจากคลิปบอร์ดได้</span>
             <span className="tag">MAX 1 GiB / 100 FILES</span>
           </button>
@@ -153,7 +163,12 @@ export function Send({ onChanged }: { onChanged: () => void }) {
               </div>
               <ul className="file-list">
                 {items.map((item) => (
-                  <li key={item.id}>
+                  <li
+                    key={item.id}
+                    className={
+                      item.selected ? "file-selected" : "file-excluded"
+                    }
+                  >
                     <label>
                       <input
                         type="checkbox"
@@ -198,61 +213,67 @@ export function Send({ onChanged }: { onChanged: () => void }) {
               )}
             </fieldset>
           )}
-          <fieldset className="share-options" disabled={busy}>
-            <legend>แชร์ไฟล์ให้</legend>
-            <div className="share-cards">
-              {(["single", "multiple"] as const).map((mode) => (
-                <label
-                  className={
-                    shareMode === mode ? "share-card selected" : "share-card"
-                  }
-                  key={mode}
+          <div className="send-options">
+            <fieldset className="share-options" disabled={busy}>
+              <legend>แชร์ไฟล์ให้</legend>
+              <div className="share-cards">
+                {(["single", "multiple"] as const).map((mode) => (
+                  <label
+                    className={
+                      shareMode === mode ? "share-card selected" : "share-card"
+                    }
+                    key={mode}
+                  >
+                    <span>
+                      <input
+                        type="radio"
+                        name="shareMode"
+                        value={mode}
+                        checked={shareMode === mode}
+                        onChange={() => setShareMode(mode)}
+                      />
+                      <strong>
+                        {mode === "single" ? "ผู้รับเดียว" : "หลายผู้รับ"}
+                      </strong>
+                    </span>
+                    <small>
+                      {mode === "single"
+                        ? "คนแรกที่กดรับสิทธิ์จะรับไฟล์ได้"
+                        : "ทุกคนที่มีรหัสรับได้จนหมดอายุ"}
+                    </small>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="send-retention">
+              {!persistentStorageAvailable() && (
+                <p className="hint">
+                  เบราว์เซอร์บันทึกประวัติไม่ได้ กรุณาเก็บลิงก์จัดการหลังส่งไฟล์
+                </p>
+              )}
+              <label className="retention-label">
+                เก็บไฟล์ไว้
+                <select
+                  aria-label="เก็บไฟล์ไว้"
+                  disabled={busy}
+                  value={retention}
+                  onChange={(e) => setRetention(e.target.value as Retention)}
                 >
-                  <span>
-                    <input
-                      type="radio"
-                      name="shareMode"
-                      value={mode}
-                      checked={shareMode === mode}
-                      onChange={() => setShareMode(mode)}
-                    />
-                    <strong>{mode === "single" ? "ผู้รับเดียว" : "หลายผู้รับ"}</strong>
-                  </span>
-                  <small>
-                    {mode === "single"
-                      ? "คนแรกที่กดรับสิทธิ์จะรับไฟล์ได้"
-                      : "ทุกคนที่มีรหัสรับได้จนหมดอายุ"}
-                  </small>
-                </label>
-              ))}
+                  {RETENTIONS.map((r) => (
+                    <option value={r} key={r}>
+                      {retentionLabels[r]}
+                      {r === "24h" ? " (ค่าเริ่มต้น)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="hint">
+                {retention === "forever"
+                  ? "ไฟล์จะใช้พื้นที่จนกว่าคุณจะลบเอง"
+                  : "เริ่มนับอายุเมื่ออัปโหลดเสร็จ และลบไฟล์อัตโนมัติเมื่อหมดอายุ"}
+              </p>
             </div>
-          </fieldset>
-          {!persistentStorageAvailable() && (
-            <p className="hint">
-              เบราว์เซอร์บันทึกประวัติไม่ได้ กรุณาเก็บลิงก์จัดการหลังส่งไฟล์
-            </p>
-          )}
-          <label className="retention-label">
-            เก็บไฟล์ไว้
-            <select
-              aria-label="เก็บไฟล์ไว้"
-              disabled={busy}
-              value={retention}
-              onChange={(e) => setRetention(e.target.value as Retention)}
-            >
-              {RETENTIONS.map((r) => (
-                <option value={r} key={r}>
-                  {retentionLabels[r]}
-                  {r === "24h" ? " (ค่าเริ่มต้น)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="hint">
-            {retention === "forever"
-              ? "ไฟล์จะใช้พื้นที่จนกว่าคุณจะลบเอง"
-              : "เริ่มนับอายุเมื่ออัปโหลดเสร็จ และลบไฟล์อัตโนมัติเมื่อหมดอายุ"}
-          </p>
+          </div>
           {busy && (
             <div className="progress-section">
               <div className="progress-label">
@@ -265,64 +286,78 @@ export function Send({ onChanged }: { onChanged: () => void }) {
               </p>
             </div>
           )}
-          <div className="actions">
-            <button
-              className="primary"
-              disabled={!files.length || total > MAX_FILE_BYTES || busy}
-              onClick={async () => {
-                if (!files.length || total > MAX_FILE_BYTES) return;
-                setBusy(true);
-                setError("");
-                setStatus("");
-                setReady(null);
-                setSent(0);
-                abort.current = new AbortController();
-                try {
-                  setPreparing(files.length > 1);
-                  setProgressTotal(total || 1);
-                  const file = await prepareBundle(files, {
-                    signal: abort.current.signal,
-                    onProgress: setSent,
-                  });
-                  setPreparing(false);
+          <div className="send-submit">
+            <div className="send-summary">
+              <strong>
+                {files.length ? `${files.length} ไฟล์ที่เลือก` : "ยังไม่ได้เลือกไฟล์"}
+              </strong>
+              <span>
+                {files.length
+                  ? `${bytes(total)}${files.length > 1 ? " · ZIP" : ""}`
+                  : "สูงสุด 1 GiB ต่อชุด"}
+              </span>
+            </div>
+            <div className="actions">
+              <button
+                className="primary"
+                disabled={!files.length || total > MAX_FILE_BYTES || busy}
+                onClick={async () => {
+                  if (!files.length || total > MAX_FILE_BYTES) return;
+                  setBusy(true);
+                  setError("");
+                  setStatus("");
+                  setReady(null);
                   setSent(0);
-                  setProgressTotal(file.size);
-                  setReady(
-                    await uploadFile(file, retention, {
+                  abort.current = new AbortController();
+                  try {
+                    setPreparing(files.length > 1);
+                    setProgressTotal(total || 1);
+                    const file = await prepareBundle(files, {
                       signal: abort.current.signal,
                       onProgress: setSent,
-                      shareMode,
-                    }),
-                  );
-                  setStatus("อัปโหลดสำเร็จ พร้อมรับไฟล์จากอีกเครื่อง");
-                } catch (e) {
-                  setError(
-                    abort.current.signal.aborted ? "ยกเลิกการส่งแล้ว" : message(e),
-                  );
-                } finally {
-                  setBusy(false);
-                  setPreparing(false);
-                  onChanged();
-                }
-              }}
-            >
-              {busy ? "กำลังส่ง…" : error ? "ลองส่งอีกครั้ง" : "อัปโหลดไฟล์"}{" "}
-              <span aria-hidden="true">↗</span>
-            </button>
-            {busy && (
-              <button onClick={() => abort.current?.abort()}>ยกเลิก</button>
-            )}
-            {items.length > 0 && !busy && (
-              <button
-                className="subtle"
-                onClick={() => {
-                  updateItems([]);
-                  if (input.current) input.current.value = "";
+                    });
+                    setPreparing(false);
+                    setSent(0);
+                    setProgressTotal(file.size);
+                    setReady(
+                      await uploadFile(file, retention, {
+                        signal: abort.current.signal,
+                        onProgress: setSent,
+                        shareMode,
+                      }),
+                    );
+                    setStatus("อัปโหลดสำเร็จ พร้อมรับไฟล์จากอีกเครื่อง");
+                  } catch (e) {
+                    setError(
+                      abort.current.signal.aborted
+                        ? "ยกเลิกการส่งแล้ว"
+                        : message(e),
+                    );
+                  } finally {
+                    setBusy(false);
+                    setPreparing(false);
+                    onChanged();
+                  }
                 }}
               >
-                ล้าง
+                {busy ? "กำลังส่ง…" : error ? "ลองส่งอีกครั้ง" : "อัปโหลดไฟล์"}{" "}
+                <span aria-hidden="true">↗</span>
               </button>
-            )}
+              {busy && (
+                <button onClick={() => abort.current?.abort()}>ยกเลิก</button>
+              )}
+              {items.length > 0 && !busy && (
+                <button
+                  className="subtle"
+                  onClick={() => {
+                    updateItems([]);
+                    if (input.current) input.current.value = "";
+                  }}
+                >
+                  ล้าง
+                </button>
+              )}
+            </div>
           </div>
           <p className="error" role="alert">
             {error}
@@ -331,20 +366,11 @@ export function Send({ onChanged }: { onChanged: () => void }) {
             {status}
           </p>
           {ready && (
-            <div className="result">
+            <div className="result send-result" ref={resultRef}>
               <p className="badge ready">
                 {ready.shareMode === "multiple" ? "หลายผู้รับ" : "ผู้รับเดียว"}
               </p>
-              <div className="eyebrow">TRANSFER READY</div>
-              <label>
-                รหัสรับไฟล์
-                <input
-                  className="code-output"
-                  value={grouped(ready.code)}
-                  readOnly
-                  onFocus={(e) => e.target.select()}
-                />
-              </label>
+              <h3>พร้อมแชร์ไฟล์</h3>
               <label className="receive-link-label">
                 ลิงก์รับไฟล์
                 <input
@@ -356,6 +382,7 @@ export function Send({ onChanged }: { onChanged: () => void }) {
               <p className="hint">ส่งลิงก์นี้ให้ผู้รับ เปิดแล้วค้นหาไฟล์ให้ทันที</p>
               <div className="actions">
                 <button
+                  className="subtle"
                   onClick={async () =>
                     setStatus(
                       (await copy(ready.code))
@@ -367,6 +394,7 @@ export function Send({ onChanged }: { onChanged: () => void }) {
                   คัดลอกรหัส
                 </button>
                 <button
+                  className="primary"
                   onClick={async () =>
                     setStatus(
                       (await copy(receiveLink))
@@ -381,6 +409,15 @@ export function Send({ onChanged }: { onChanged: () => void }) {
                   เปิดลิงก์รับไฟล์
                 </a>
               </div>
+              <label className="alternate-code">
+                รหัสรับไฟล์
+                <input
+                  className="code-output"
+                  value={grouped(ready.code)}
+                  readOnly
+                  onFocus={(e) => e.target.select()}
+                />
+              </label>
               <p className="hint">หมดอายุ: {date(ready.expiresAt)}</p>
               <p className="hint">
                 {ready.shareMode === "multiple"
@@ -414,42 +451,6 @@ export function Send({ onChanged }: { onChanged: () => void }) {
           )}
         </div>
       </section>
-      <aside>
-        <div className="side-note">
-          <p className="eyebrow">HOW IT WORKS</p>
-          <ol className="steps">
-            <li>
-              <span>01</span>
-              <div>
-                <strong>เลือกและอัปโหลดไฟล์</strong>
-                <p>ตั้งเวลาเก็บให้พอดีกับงาน</p>
-              </div>
-            </li>
-            <li>
-              <span>02</span>
-              <div>
-                <strong>คัดลอกรหัสหรือลิงก์</strong>
-                <p>ส่งให้ตัวเองหรือเพื่อนร่วมทีม</p>
-              </div>
-            </li>
-            <li>
-              <span>03</span>
-              <div>
-                <strong>เปิดเว็บบนอีกเครื่อง</strong>
-                <p>กรอกรหัส แล้วดาวน์โหลดได้เลย</p>
-              </div>
-            </li>
-          </ol>
-        </div>
-        <div className="tip">
-          <span className="command">// GOOD TO KNOW</span>
-          <p>
-            อัปโหลดเสร็จแล้วปิดเครื่องได้
-            <br />
-            ไฟล์ยังพร้อมให้รับตามอายุที่เลือก
-          </p>
-        </div>
-      </aside>
     </div>
   );
 }

@@ -124,7 +124,7 @@ export function Receive({ initialCode }: { initialCode: string }) {
           <i />
         </span>
         <span>receive_file</span>
-        <span className="dim">02 / retrieve</span>
+        <span className="dim">/ retrieve</span>
       </div>
       <div className="panel-body">
         <p className="command">

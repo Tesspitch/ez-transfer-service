@@ -287,6 +287,7 @@ test("removes queue entries and fits long filenames on mobile in both themes", a
   await expect(page.getByRole("checkbox")).toHaveCount(1);
   for (const theme of ["dark", "light"]) {
     await page.getByRole("combobox", { name: "ธีม" }).selectOption(theme);
+    await page.evaluate(() => scrollTo(0, 0));
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,

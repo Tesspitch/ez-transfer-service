@@ -77,7 +77,7 @@ export function MyFiles({ onChanged }: { onChanged: () => void }) {
           <i />
         </span>
         <span>my_files</span>
-        <span className="dim">03 / manage</span>
+        <span className="dim">/ manage</span>
       </div>
       <div className="panel-body">
         <div className="heading-row">

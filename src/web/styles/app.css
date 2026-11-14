@@ -255,6 +255,8 @@ nav button {
 nav button.active {
   border-bottom-color: var(--accent);
   color: var(--text);
+  background: var(--accent-bg);
+  font-weight: 600;
 }
 .nav-index {
   font: 10px var(--mono);
@@ -843,7 +845,330 @@ progress::-webkit-progress-value {
 .management-section button {
   font-size: 0.8rem;
 }
+.send-workspace {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 960px;
+  margin: 0 auto;
+}
+.send-workspace .panel-body {
+  padding: 38px;
+}
+.send-workspace h2 {
+  font-size: clamp(1.6rem, 3vw, 2rem);
+}
+.send-workspace .command {
+  font-size: 0.72rem;
+  margin-bottom: 16px;
+}
+.send-workspace .drop-zone {
+  min-height: 260px;
+  border: 2px dashed color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  border-radius: 10px;
+  gap: 12px;
+}
+.send-workspace .drop-zone:hover:not(:disabled),
+.send-workspace .drop-zone.dragging {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+.send-workspace .drop-zone strong {
+  font-size: 1.4rem;
+}
+.send-workspace .upload-symbol {
+  width: 64px;
+  height: 64px;
+  font-size: 36px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--accent-bg);
+}
+.has-files .drop-zone {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  min-height: 88px;
+  padding: 16px 20px;
+  text-align: left;
+  border: 1px dashed var(--border);
+  background: var(--bg);
+  column-gap: 15px;
+  row-gap: 3px;
+  margin: 25px 0 18px;
+}
+.has-files .drop-zone .upload-symbol {
+  grid-row: 1 / 3;
+  width: 40px;
+  height: 40px;
+  font-size: 25px;
+  margin: 0;
+  border-radius: 8px;
+}
+.has-files .drop-zone strong {
+  grid-column: 2;
+  font-size: 0.95rem;
+}
+.has-files .drop-zone .muted {
+  grid-column: 2;
+  font-size: 0.75rem;
+}
+.has-files .drop-zone .tag {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  margin: 0;
+}
+.send-workspace .file-selection {
+  border-radius: 8px;
+  padding: 18px;
+}
+.send-workspace .file-list {
+  margin: 14px 0;
+}
+.send-workspace .file-list li {
+  padding: 12px;
+  border-bottom: 0;
+  border-radius: 5px;
+  margin-bottom: 5px;
+}
+.send-workspace .file-selected {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+.send-workspace .file-excluded {
+  background: var(--bg);
+  color: var(--muted);
+}
+.send-workspace .file-details strong {
+  font-size: 0.95rem;
+}
+.send-workspace .file-tools {
+  gap: 6px;
+}
+.send-workspace .file-tools button {
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 10px;
+  min-height: 36px;
+}
+.send-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px;
+  margin-top: 24px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.send-options .share-options {
+  margin: 0;
+  min-width: 0;
+}
+.send-options .share-options legend {
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.send-options .share-cards {
+  gap: 10px;
+}
+.send-options .share-card {
+  padding: 13px;
+  background: var(--surface);
+}
+.send-options .share-card small {
+  line-height: 1.65;
+}
+.is-empty .share-card.selected {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.send-retention {
+  min-width: 0;
+}
+.send-options .retention-label {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  font-weight: 600;
+}
+.send-options .retention-label select {
+  min-width: 0;
+  width: 100%;
+  font-weight: 400;
+  background: var(--surface);
+}
+.send-options .hint {
+  font-size: 0.75rem;
+  margin-bottom: 0;
+}
+.send-submit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 22px;
+  padding: 22px 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.has-files .send-submit {
+  background: var(--accent-bg);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+.send-summary {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.send-summary strong {
+  font-size: 0.95rem;
+}
+.send-summary span {
+  color: var(--muted);
+  font: 0.75rem var(--mono);
+}
+.send-submit .primary {
+  min-height: 54px;
+  min-width: 190px;
+  font-size: 1rem;
+}
+.send-submit .primary:disabled {
+  background: var(--raised);
+  border-color: var(--border);
+  color: var(--muted);
+  opacity: 1;
+}
+.send-result {
+  border: 1px solid var(--accent);
+  border-top: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 30px;
+  scroll-margin-top: 115px;
+}
+.is-ready .send-submit {
+  background: var(--bg);
+  border-color: var(--border);
+}
+.is-ready .send-submit .primary {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--muted);
+}
+.send-result h3 {
+  font-size: 1.7rem;
+  margin: 12px 0 24px;
+}
+.send-result .receive-link-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+.send-result .receive-link-label input {
+  min-height: 54px;
+  font: 0.85rem var(--mono);
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--surface);
+}
+.send-result .actions .primary {
+  min-height: 48px;
+  min-width: 150px;
+}
+.send-result .alternate-code {
+  margin-top: 25px;
+  color: var(--muted);
+}
+.send-result .code-output {
+  font-size: 1rem;
+  color: var(--text);
+}
+.send-result .management-section {
+  border-top-style: dashed;
+}
+.send-result .management-section h3 {
+  font-size: 0.9rem;
+  margin: 0 0 8px;
+}
+.receive-panel {
+  margin-inline: auto;
+}
+.receive-panel .code-input {
+  min-height: 64px;
+  font-size: 1.2rem;
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.receive-panel form .primary {
+  min-height: 52px;
+  width: 100%;
+  font-size: 1rem;
+}
+.receive-panel .result {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+.receive-panel .result .primary {
+  width: 100%;
+  min-height: 54px;
+}
 @media (max-width: 720px) {
+  .send-workspace .panel-body {
+    padding: 22px;
+  }
+  .send-workspace .drop-zone {
+    min-height: 220px;
+    padding: 22px 14px;
+  }
+  .send-workspace .drop-zone strong {
+    font-size: 1.15rem;
+  }
+  .has-files .drop-zone {
+    min-height: 85px;
+    padding: 14px;
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+  .has-files .drop-zone .upload-symbol {
+    width: 32px;
+    height: 32px;
+  }
+  .has-files .drop-zone strong {
+    font-size: 0.9rem;
+  }
+  .has-files .drop-zone .tag {
+    display: none;
+  }
+  .send-workspace .file-selection {
+    padding: 12px;
+  }
+  .send-workspace .file-list li {
+    padding: 10px 8px;
+  }
+  .send-options {
+    grid-template-columns: 1fr;
+    padding: 18px;
+    gap: 24px;
+  }
+  .send-options .share-cards {
+    grid-template-columns: 1fr;
+  }
+  .send-submit {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 18px;
+    gap: 16px;
+  }
+  .send-submit .actions {
+    width: 100%;
+  }
+  .send-submit .primary {
+    flex: 1;
+    min-width: 0;
+  }
+  .send-result {
+    padding: 20px;
+    scroll-margin-top: 90px;
+  }
+  .send-result h3 {
+    font-size: 1.45rem;
+  }
   .share-cards {
     grid-template-columns: 1fr;
   }
