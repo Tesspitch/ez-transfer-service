@@ -71,3 +71,4 @@ Live integrationแยกต่างหาก: `npm run test:integration` ต�
 - [Acceptance](docs/runbooks/acceptance.md)
 
 ไม่มีantivirus/preview/E2EEในรุ่นนี้ โควตาของแอปไม่ใช่provider spending cap และSupabaseFreeอาจพักเมื่อidle
+"# ez-transfer-service" 
